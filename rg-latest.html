@@ -170,6 +170,28 @@ input[type="number"]{
 }
 input[type="number"]:focus-visible{outline:2px solid var(--accent);}
 
+.checkbox-row{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  font-size:13px;
+  color:var(--ink);
+  cursor:pointer;
+  user-select:none;
+}
+.checkbox-row input[type="checkbox"]{
+  width:16px;
+  height:16px;
+  accent-color:var(--accent);
+  cursor:pointer;
+}
+
+.playlist-panel{
+  max-width:760px;
+  margin:22px auto 0;
+}
+.playlist-panel[hidden]{display:none;}
+
 .btn-main{
   border:none;
   background:var(--accent);
@@ -301,7 +323,6 @@ input[type="number"]:focus-visible{outline:2px solid var(--accent);}
 @media (max-width:520px){
   .pair-card{padding:14px 14px;}
   .pair-words{gap:8px;}
-  .tie{display:none;}
 }
 </style>
 </head>
@@ -345,6 +366,12 @@ input[type="number"]:focus-visible{outline:2px solid var(--accent);}
         <button class="pill type-pill type-near" data-type="near">Near</button>
         <button class="pill type-pill type-slant" data-type="slant">Slant</button>
       </div>
+      <div class="row">
+        <label class="checkbox-row">
+          <input type="checkbox" id="playlistToggle" checked>
+          <span>Show music player</span>
+        </label>
+      </div>
     </div>
 
     <div class="panel">
@@ -368,6 +395,10 @@ input[type="number"]:focus-visible{outline:2px solid var(--accent);}
 
   <div class="actions actions-bottom">
     <button class="btn-main refresh-btn" id="refreshBtnBottom">Refresh rhymes</button>
+  </div>
+
+  <div class="playlist-panel" id="playlistPanel">
+    <iframe data-testid="embed-iframe" style="border-radius:12px" src="https://open.spotify.com/embed/playlist/6SZt39ktXkhy8WUJe1CRUv?utm_source=generator&si=29beb8e567bf4077" width="100%" height="152" frameBorder="0" allowfullscreen="" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy"></iframe>
   </div>
 
 </div>
@@ -1153,6 +1184,8 @@ function buildDecoder(cmuData) {
   const csvStatus = document.getElementById("csvStatus");
   const refreshBtnTop = document.getElementById("refreshBtnTop");
   const refreshBtnBottom = document.getElementById("refreshBtnBottom");
+  const playlistToggle = document.getElementById("playlistToggle");
+  const playlistPanel = document.getElementById("playlistPanel");
   const pairsContainer = document.getElementById("pairsContainer");
   const countInfo = document.getElementById("countInfo");
   const diffSlider = document.getElementById("diffSlider");
@@ -1446,10 +1479,16 @@ function buildDecoder(cmuData) {
   refreshBtnTop.addEventListener("click", () => generate(true));
   refreshBtnBottom.addEventListener("click", () => generate(true));
 
+  function updatePlaylistVisibility() {
+    playlistPanel.hidden = !playlistToggle.checked;
+  }
+  playlistToggle.addEventListener("change", updatePlaylistVisibility);
+
   // ---- init ----
   setCountPillsUI();
   setTypePillsUI();
   renderDiffUI();
+  updatePlaylistVisibility();
   generate();
 })();
 
