@@ -73,10 +73,10 @@ h1 span{color:var(--accent);}
   margin-bottom:14px;
 }
 
-.guidelines-panel{
+.collapsible-panel{
   padding:4px 18px;
 }
-.guidelines-panel summary{
+.collapsible-panel summary{
   list-style:none;
   cursor:pointer;
   padding:12px 0;
@@ -88,16 +88,16 @@ h1 span{color:var(--accent);}
   align-items:center;
   gap:8px;
 }
-.guidelines-panel summary::-webkit-details-marker{display:none;}
-.guidelines-panel summary::before{
+.collapsible-panel summary::-webkit-details-marker{display:none;}
+.collapsible-panel summary::before{
   content:"▸";
   color:var(--accent);
   font-size:12px;
   transition:transform .12s ease;
 }
-.guidelines-panel[open] summary::before{transform:rotate(90deg);}
-.guidelines-panel summary:focus-visible{outline:2px solid var(--accent); outline-offset:2px;}
-.guidelines-body{
+.collapsible-panel[open] summary::before{transform:rotate(90deg);}
+.collapsible-panel summary:focus-visible{outline:2px solid var(--accent); outline-offset:2px;}
+.collapsible-body{
   padding:2px 0 16px;
   color:var(--ink);
   font-size:14px;
@@ -248,6 +248,19 @@ input[type="number"]:focus-visible{outline:2px solid var(--accent);}
   margin:22px auto 0;
 }
 .playlist-panel[hidden]{display:none;}
+.player-embed[hidden]{display:none;}
+
+.player-select{
+  border:1px solid var(--line);
+  background:var(--panel-2);
+  color:var(--ink);
+  border-radius:999px;
+  padding:7px 12px;
+  font-size:13px;
+  font-family:'Inter',sans-serif;
+  cursor:pointer;
+}
+.player-select:focus-visible{outline:2px solid var(--accent);}
 
 .btn-main{
   border:none;
@@ -274,6 +287,17 @@ input[type="number"]:focus-visible{outline:2px solid var(--accent);}
   font-family:'Inter',sans-serif;
 }
 .btn-ghost:hover{color:var(--ink); border-color:#54493a;}
+
+.hide-ui-btn{
+  position:fixed;
+  top:14px;
+  right:14px;
+  z-index:20;
+  background:var(--panel);
+  box-shadow:0 2px 10px rgba(0,0,0,.35);
+  padding:8px 14px;
+  font-size:12px;
+}
 
 .csv-row input[type="file"]{
   color:var(--ink-dim);
@@ -345,6 +369,10 @@ input[type="number"]:focus-visible{outline:2px solid var(--accent);}
   font-size:20px;
   align-self:center;
 }
+.pairs.single-words [data-pair-part="b"],
+.pairs.single-words .tie{
+  visibility:hidden;
+}
 .meta{
   display:flex;
   flex-direction:column;
@@ -386,15 +414,17 @@ input[type="number"]:focus-visible{outline:2px solid var(--accent);}
 <body>
 <div class="wrap">
 
+  <button class="btn-ghost hide-ui-btn" id="hideUiBtn">Hide UI</button>
+
   <div class="settings-col">
     <header class="top">
       <h1>Rhyme<span>Flow</span></h1>
       <div class="subtitle">rhyme pairs to freestyle to</div>
     </header>
 
-    <details class="panel guidelines-panel" id="guidelinesDetails" open>
+    <details class="panel collapsible-panel" id="guidelinesDetails" open>
       <summary>Guidelines</summary>
-      <div class="guidelines-body">
+      <div class="collapsible-body guidelines-body">
         <ol>
           <li>Pick a beat (using the music player or use your own)</li>
           <li>
@@ -457,19 +487,30 @@ input[type="number"]:focus-visible{outline:2px solid var(--accent);}
           <input type="checkbox" id="playlistToggle" checked>
           <span>Show music player</span>
         </label>
+        <select id="playlistSourceSelect" class="player-select">
+          <option value="spotify">Spotify</option>
+          <option value="youtube">YouTube</option>
+        </select>
       </div>
     </div>
 
-    <div class="panel">
-      <div class="row csv-row">
-        <div class="label" id="wordListLabel">Word list — 4,000 built in, or add your own</div>
-        <input type="file" id="csvInput" accept=".csv,text/csv">
-        <button class="btn-ghost" id="csvAddBtn">Add to library</button>
-        <button class="btn-ghost" id="csvOnlyBtn">Use only these</button>
-        <button class="btn-ghost" id="csvResetBtn">Reset to built-in</button>
+    <details class="panel collapsible-panel" id="advancedDetails">
+      <summary>Advanced</summary>
+      <div class="collapsible-body">
+        <div class="row csv-row">
+          <div class="label" id="wordListLabel">Word list — 12,000 built in, or add your own</div>
+          <input type="file" id="csvInput" accept=".csv,text/csv">
+          <button class="btn-ghost" id="csvAddBtn">Add to library</button>
+          <button class="btn-ghost" id="csvOnlyBtn">Use only these</button>
+          <button class="btn-ghost" id="csvResetBtn">Reset to built-in</button>
+        </div>
+        <div class="status-msg" id="csvStatus">Using the built-in 12,000-word library.</div>
+        <div class="row" style="margin-top:14px;">
+          <div class="label">Reveal mode</div>
+          <button class="btn-ghost" id="singleWordsBtn">Single words</button>
+        </div>
       </div>
-      <div class="status-msg" id="csvStatus">Using the built-in 4,000-word library.</div>
-    </div>
+    </details>
 
     <div class="actions">
       <button class="btn-main refresh-btn" id="refreshBtnTop">Create rhymes</button>
@@ -484,7 +525,8 @@ input[type="number"]:focus-visible{outline:2px solid var(--accent);}
   </div>
 
   <div class="playlist-panel" id="playlistPanel">
-    <iframe data-testid="embed-iframe" style="border-radius:12px" src="https://open.spotify.com/embed/playlist/6SZt39ktXkhy8WUJe1CRUv?utm_source=generator&si=29beb8e567bf4077" width="100%" height="152" frameBorder="0" allowfullscreen="" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy"></iframe>
+    <iframe class="player-embed" id="spotifyEmbed" data-testid="embed-iframe" style="border-radius:12px" src="https://open.spotify.com/embed/playlist/6SZt39ktXkhy8WUJe1CRUv?utm_source=generator&si=29beb8e567bf4077" width="100%" height="152" frameBorder="0" allowfullscreen="" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy"></iframe>
+    <iframe class="player-embed" id="youtubeEmbed" hidden style="border-radius:12px" src="https://www.youtube.com/embed/videoseries?list=PL0L_zzLQSZ2V7PR2wj7zOnrOxPlIUKix6" width="100%" height="315" frameBorder="0" allowfullscreen="" allow="autoplay; encrypted-media; picture-in-picture" loading="lazy"></iframe>
   </div>
 
 </div>
@@ -1324,24 +1366,46 @@ function buildDecoderNL(wordsData) {
     }
     return { words, byTier };
   }
+  // Difficulty mix: two boundary percentages split the built-in library into
+  // easy / intermediate / complex. Each language's default mirrors ITS OWN
+  // natural distribution, so an untouched slider behaves like unweighted
+  // selection — English and Dutch tiers aren't sized the same (English easy
+  // words were retiered by syllable count + frequency together, not just
+  // frequency, so far fewer words qualify as "easy" than in Dutch).
+  function naturalSplit(byTier) {
+    const easy = byTier.easy.length, mid = byTier.intermediate.length, hard = byTier.complex.length;
+    const total = easy + mid + hard || 1;
+    const p1 = Math.round((easy / total) * 100);
+    const p2 = Math.max(p1, Math.round(((easy + mid) / total) * 100));
+    return [p1, p2];
+  }
+
   const LANGS = {
     en: { ...tieredWords(WORDS_DATA), getKey: buildDecoder(CMU_DATA) },
     nl: { ...tieredWords(WORDS_DATA_NL), getKey: buildDecoderNL(WORDS_DATA_NL) },
   };
+  for (const lang of Object.values(LANGS)) lang.naturalSplit = naturalSplit(lang.byTier);
+
   let currentLanguage = "en";
   let csvWords = [];
   let libraryMode = "builtin"; // 'builtin' | 'add' | 'only'
 
-  // Difficulty mix: two boundary percentages split the built-in library into
-  // easy / intermediate / complex thirds. Defaults mirror the library's
-  // natural distribution (~77% easy, ~13% intermediate, ~10% complex) so an
-  // untouched slider behaves like the original unweighted selection.
-  let diffSplit = [77, 90];
+  const diffSplitByLang = {
+    en: LANGS.en.naturalSplit.slice(),
+    nl: LANGS.nl.naturalSplit.slice(),
+  };
+  // Kept as a live reference into diffSplitByLang[currentLanguage] — every
+  // read/write site below just uses `diffSplit`, and mutating its elements
+  // (diffSplit[0] = ...) mutates the per-language slot automatically since
+  // arrays are references. Repointed on language switch, see below.
+  let diffSplit = diffSplitByLang[currentLanguage];
 
   let selectedCount = 20;
   let customCountActive = false;
   let playlistVisible = true;
+  let playlistSource = "spotify";
   let guidelinesOpen = true;
+  let advancedOpen = false;
   let activeTypes = new Set(["perfect"]); // near/slant hidden for now, see template.html
 
   // ---- persisted settings ----
@@ -1360,31 +1424,37 @@ function buildDecoderNL(wordsData) {
     }
     if (!stored || typeof stored !== "object") return;
     if (stored.language === "en" || stored.language === "nl") currentLanguage = stored.language;
-    if (
-      Array.isArray(stored.diffSplit) &&
-      stored.diffSplit.length === 2 &&
-      stored.diffSplit.every((v) => typeof v === "number" && v >= 0 && v <= 100) &&
-      stored.diffSplit[0] <= stored.diffSplit[1]
-    ) {
-      diffSplit = stored.diffSplit;
+    const isValidSplit = (s) =>
+      Array.isArray(s) && s.length === 2 &&
+      s.every((v) => typeof v === "number" && v >= 0 && v <= 100) &&
+      s[0] <= s[1];
+    if (stored.diffSplitByLang && typeof stored.diffSplitByLang === "object") {
+      for (const lang of ["en", "nl"]) {
+        const s = stored.diffSplitByLang[lang];
+        if (isValidSplit(s)) diffSplitByLang[lang] = s;
+      }
     }
     if (typeof stored.selectedCount === "number" && stored.selectedCount > 0) {
       selectedCount = stored.selectedCount;
     }
     if (typeof stored.customCountActive === "boolean") customCountActive = stored.customCountActive;
     if (typeof stored.playlistVisible === "boolean") playlistVisible = stored.playlistVisible;
+    if (stored.playlistSource === "spotify" || stored.playlistSource === "youtube") playlistSource = stored.playlistSource;
     if (typeof stored.guidelinesOpen === "boolean") guidelinesOpen = stored.guidelinesOpen;
+    if (typeof stored.advancedOpen === "boolean") advancedOpen = stored.advancedOpen;
   }
 
   function saveSettings() {
     try {
       localStorage.setItem(SETTINGS_KEY, JSON.stringify({
         language: currentLanguage,
-        diffSplit,
+        diffSplitByLang,
         selectedCount,
         customCountActive,
         playlistVisible: playlistToggle.checked,
+        playlistSource: playlistSourceSelect.value,
         guidelinesOpen: guidelinesDetails.open,
+        advancedOpen: advancedDetails.open,
       }));
     } catch (e) {
       // storage full or unavailable (e.g. private browsing) — settings
@@ -1393,6 +1463,7 @@ function buildDecoderNL(wordsData) {
   }
 
   loadSettings();
+  diffSplit = diffSplitByLang[currentLanguage]; // re-point now that loadSettings may have changed currentLanguage
 
   let builtInWords = LANGS[currentLanguage].words;
   let wordsByTier = LANGS[currentLanguage].byTier;
@@ -1414,7 +1485,14 @@ function buildDecoderNL(wordsData) {
   const refreshBtnBottom = document.getElementById("refreshBtnBottom");
   const playlistToggle = document.getElementById("playlistToggle");
   const playlistPanel = document.getElementById("playlistPanel");
+  const playlistSourceSelect = document.getElementById("playlistSourceSelect");
+  const spotifyEmbed = document.getElementById("spotifyEmbed");
+  const youtubeEmbed = document.getElementById("youtubeEmbed");
   const guidelinesDetails = document.getElementById("guidelinesDetails");
+  const advancedDetails = document.getElementById("advancedDetails");
+  const singleWordsBtn = document.getElementById("singleWordsBtn");
+  const hideUiBtn = document.getElementById("hideUiBtn");
+  const settingsCol = document.querySelector(".settings-col");
   const pairsContainer = document.getElementById("pairsContainer");
   const countInfo = document.getElementById("countInfo");
   const diffSlider = document.getElementById("diffSlider");
@@ -1491,8 +1569,8 @@ function buildDecoderNL(wordsData) {
     });
     const isNL = currentLanguage === "nl";
     wordListLabel.textContent = isNL
-      ? "Woordenlijst — 4.000 ingebouwd, of voeg je eigen woorden toe"
-      : "Word list — 4,000 built in, or add your own";
+      ? "Woordenlijst — 12.000 ingebouwd, of voeg je eigen woorden toe"
+      : "Word list — 12,000 built in, or add your own";
   }
 
   langPills.forEach((btn) => {
@@ -1502,6 +1580,10 @@ function buildDecoderNL(wordsData) {
       currentLanguage = lang;
       builtInWords = LANGS[currentLanguage].words;
       wordsByTier = LANGS[currentLanguage].byTier;
+      // Each language keeps its own difficulty-mix slider position — their
+      // tier sizes aren't comparable (see naturalSplit above), so a mix
+      // that's meaningful in one language isn't in the other.
+      diffSplit = diffSplitByLang[currentLanguage];
       // A CSV uploaded for one language won't have rhyme keys in the other
       // (Dutch has no fallback guesser for out-of-vocabulary words), so drop
       // it rather than silently producing a thinned-out or empty word list.
@@ -1509,9 +1591,10 @@ function buildDecoderNL(wordsData) {
       csvWords = [];
       csvInput.value = "";
       csvStatus.textContent = currentLanguage === "nl"
-        ? "Using the built-in 4,000-word Dutch library."
-        : "Using the built-in 4,000-word library.";
+        ? "Using the built-in 12,000-word Dutch library."
+        : "Using the built-in 12,000-word library.";
       setLangPillsUI();
+      renderDiffUI();
       saveSettings();
       generate();
     });
@@ -1664,7 +1747,7 @@ function buildDecoderNL(wordsData) {
       }
       csvWords = words;
       libraryMode = "add";
-      csvStatus.textContent = `Added ${words.length} word(s) from your CSV to the 4,000-word library.`
+      csvStatus.textContent = `Added ${words.length} word(s) from your CSV to the 12,000-word library.`
         + (currentLanguage === "nl" ? " Dutch words not already in the built-in dictionary won't have a known pronunciation, so they'll be skipped." : "");
       generate();
     } catch (e) {
@@ -1694,8 +1777,8 @@ function buildDecoderNL(wordsData) {
     csvWords = [];
     csvInput.value = "";
     csvStatus.textContent = currentLanguage === "nl"
-      ? "Using the built-in 4,000-word Dutch library."
-      : "Using the built-in 4,000-word library.";
+      ? "Using the built-in 12,000-word Dutch library."
+      : "Using the built-in 12,000-word library.";
     generate();
   });
 
@@ -1712,9 +1795,9 @@ function buildDecoderNL(wordsData) {
       card.innerHTML = `
         <div class="pair-idx">${String(idx + 1).padStart(2, "0")}</div>
         <div class="pair-words">
-          <span class="word">${p.a}</span>
+          <span class="word" data-pair-part="a">${p.a}</span>
           <span class="tie">&harr;</span>
-          <span class="word">${p.b}</span>
+          <span class="word" data-pair-part="b">${p.b}</span>
         </div>
         <div class="meta">
           <span class="type-chip ${p.type}">${p.type}</span>
@@ -1750,22 +1833,65 @@ function buildDecoderNL(wordsData) {
   function updatePlaylistVisibility() {
     playlistPanel.hidden = !playlistToggle.checked;
   }
+  function updatePlaylistSource() {
+    spotifyEmbed.hidden = playlistSourceSelect.value !== "spotify";
+    youtubeEmbed.hidden = playlistSourceSelect.value !== "youtube";
+  }
   playlistToggle.addEventListener("change", () => {
     updatePlaylistVisibility();
     saveSettings();
   });
+  playlistSourceSelect.addEventListener("change", () => {
+    updatePlaylistSource();
+    saveSettings();
+  });
 
   guidelinesDetails.addEventListener("toggle", saveSettings);
+  advancedDetails.addEventListener("toggle", saveSettings);
+
+  // Quiz/reveal mode: hide word B (and the tie arrow) in every pair card so
+  // you can try to come up with the rhyme yourself first, then toggle back
+  // to check. Not persisted — like Hide UI, you want a fresh reveal state
+  // on a new visit. Applies to whatever's currently rendered AND to
+  // anything generated afterwards, since the class lives on the container.
+  let singleWordsMode = false;
+  function updateSingleWordsUI() {
+    pairsContainer.classList.toggle("single-words", singleWordsMode);
+    singleWordsBtn.textContent = singleWordsMode ? "Show pairs" : "Single words";
+  }
+  singleWordsBtn.addEventListener("click", () => {
+    singleWordsMode = !singleWordsMode;
+    updateSingleWordsUI();
+  });
+
+  // Performance mode: hide every settings panel (and the top action row
+  // that lives inside .settings-col) so only the pair cards, the bottom
+  // refresh button, and the music player remain — not persisted, since you
+  // always want your settings panel back on a fresh visit.
+  let uiHidden = false;
+  function updateHideUiUI() {
+    settingsCol.hidden = uiHidden;
+    hideUiBtn.textContent = uiHidden ? "Show UI" : "Hide UI";
+  }
+  hideUiBtn.addEventListener("click", () => {
+    uiHidden = !uiHidden;
+    updateHideUiUI();
+  });
 
   // ---- init ----
   guidelinesDetails.open = guidelinesOpen;
+  advancedDetails.open = advancedOpen;
+  updateSingleWordsUI();
   playlistToggle.checked = playlistVisible;
+  playlistSourceSelect.value = playlistSource;
+  updatePlaylistSource();
   if (customCountActive) customCountInput.value = selectedCount;
   setLangPillsUI();
   setCountPillsUI();
   setTypePillsUI();
   renderDiffUI();
   updatePlaylistVisibility();
+  updateHideUiUI();
   generate();
 })();
 
