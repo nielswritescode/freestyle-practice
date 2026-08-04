@@ -11463,7 +11463,6 @@ const WORDS_DATA = [
   ["crawls", "easy"],
   ["wormholes", "intermediate"],
   ["recalls", "intermediate"],
-  ["gauls", "easy"],
   ["mothballs", "intermediate"],
   ["fireballs", "intermediate"],
   ["snowballs", "intermediate"],
