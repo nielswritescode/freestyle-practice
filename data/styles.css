@@ -281,6 +281,7 @@ input[type="number"]:focus-visible{outline:2px solid var(--accent);}
   font-family:'Inter',sans-serif;
 }
 .btn-ghost:hover{color:var(--ink); border-color:#54493a;}
+a.btn-ghost{text-decoration:none; display:inline-block;}
 
 .hide-ui-btn{
   position:fixed;

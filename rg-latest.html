@@ -49,6 +49,7 @@
         <button class="pill lang-pill" data-lang="de">Deutsch</button>
         <button class="pill lang-pill" data-lang="fr">Français</button>
         <button class="pill lang-pill" data-lang="es">Español</button>
+        <button class="pill lang-pill" data-lang="it">Italiano</button>
       </div>
       <div class="row">
         <div class="label">How many pairs</div>
@@ -96,17 +97,25 @@
       <summary>Advanced</summary>
       <div class="collapsible-body">
         <div class="row csv-row">
-          <div class="label" id="wordListLabel">Word list — 12,000 built in, or add your own</div>
+          <div class="label" id="wordListLabel">Word list — 11,000 built in, or add your own</div>
           <input type="file" id="csvInput" accept=".csv,text/csv">
           <button class="btn-ghost" id="csvAddBtn">Add to library</button>
           <button class="btn-ghost" id="csvOnlyBtn">Use only these</button>
           <button class="btn-ghost" id="csvResetBtn">Reset to built-in</button>
           <button class="btn-ghost" id="csvExampleBtn">Download example CSV</button>
         </div>
-        <div class="status-msg" id="csvStatus">Using the built-in 12,000-word library.</div>
+        <div class="status-msg" id="csvStatus">Using the built-in 11,000-word library.</div>
         <div class="row" style="margin-top:14px;">
           <div class="label">Reveal mode</div>
           <button class="btn-ghost" id="singleWordsBtn">Single words</button>
+        </div>
+        <div class="row" style="margin-top:14px;">
+          <label class="checkbox-row">
+            <input type="checkbox" id="autoRefreshToggle">
+            <span>Auto-refresh rhymes every</span>
+          </label>
+          <input type="number" id="autoRefreshSeconds" min="5" max="3600" value="60">
+          <div class="label">seconds</div>
         </div>
         <div class="row" style="margin-top:14px;">
           <div class="label">Definitions</div>
@@ -116,6 +125,10 @@
         </div>
         <div class="row" id="showAllDefsRow" style="margin-top:10px;">
           <button class="btn-ghost" id="showAllDefsBtn">Show all definitions</button>
+        </div>
+        <div class="row" style="margin-top:14px;">
+          <div class="label">Feedback</div>
+          <a class="btn-ghost" href="https://github.com/nielswritescode/freestyle-practice/issues/new" target="_blank" rel="noopener noreferrer">Report a bug / Request a feature</a>
         </div>
       </div>
     </details>
@@ -144,6 +157,7 @@
 <script src="data/words-data-de.js"></script>
 <script src="data/words-data-fr.js"></script>
 <script src="data/words-data-es.js"></script>
+<script src="data/words-data-it.js"></script>
 <script src="data/cmu-data.js"></script>
 <script src="data/wordnet-data.js"></script>
 <script src="js/phonetics-en.js"></script>
@@ -155,6 +169,7 @@
 <script src="js/de-rhyme.js"></script>
 <script src="js/fr-rhyme.js"></script>
 <script src="js/es-rhyme.js"></script>
+<script src="js/it-rhyme.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>

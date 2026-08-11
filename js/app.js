@@ -14,18 +14,22 @@
     de: { ...tieredWords(WORDS_DATA_DE), getKey: buildDecoderDE(WORDS_DATA_DE) },
     fr: { ...tieredWords(WORDS_DATA_FR), getKey: buildDecoderFR(WORDS_DATA_FR) },
     es: { ...tieredWords(WORDS_DATA_ES), getKey: buildDecoderES(WORDS_DATA_ES) },
+    it: { ...tieredWords(WORDS_DATA_IT), getKey: buildDecoderIT(WORDS_DATA_IT) },
   };
 
   // Per-language UI strings and built-in library size, keyed the same as
-  // LANGS. English/Dutch ship a 12,000-word library; German/French/Spanish
-  // ship a lighter 3,000-word one (frequency-ranked, real IPA rhymes, no
-  // hand-curated rhyme-family balancing — see data/words-data-{de,fr,es}.js).
+  // LANGS. English ships an ~11,000-word library (12,000 curated words,
+  // minus 908 with no data/wordnet-data.js entry — see words-data.js);
+  // Dutch ships the full 12,000. German/French/Spanish ship a lighter
+  // 3,000-word one (frequency-ranked, real IPA rhymes, no hand-curated
+  // rhyme-family balancing — see data/words-data-{de,fr,es}.js).
   const LANG_META = {
-    en: { wordListLabel: "Word list — 12,000 built in, or add your own", builtInCount: "12,000" },
+    en: { wordListLabel: "Word list — 11,000 built in, or add your own", builtInCount: "11,000" },
     nl: { wordListLabel: "Woordenlijst — 12.000 ingebouwd, of voeg je eigen woorden toe", builtInCount: "12,000" },
     de: { wordListLabel: "Wortliste — 3.000 integriert, oder füge eigene hinzu", builtInCount: "3,000" },
     fr: { wordListLabel: "Liste de mots — 3 000 intégrés, ou ajoutez les vôtres", builtInCount: "3,000" },
     es: { wordListLabel: "Lista de palabras — 3000 incorporadas, o añade las tuyas", builtInCount: "3,000" },
+    it: { wordListLabel: "Lista di parole — 3.000 integrate, o aggiungi le tue", builtInCount: "3,000" },
   };
   // Only English has a rule-based spelling-to-sound fallback (js/phonetics-en.js);
   // every other language depends entirely on its built-in pronunciation
@@ -46,6 +50,7 @@
     de: [80, 90],
     fr: [80, 90],
     es: [80, 90],
+    it: [80, 90],
   };
   // Kept as a live reference into diffSplitByLang[currentLanguage] — every
   // read/write site below just uses `diffSplit`, and mutating its elements
@@ -59,6 +64,8 @@
   let playlistSource = "youtube";
   let guidelinesOpen = true;
   let advancedOpen = false;
+  let autoRefreshEnabled = false;
+  let autoRefreshSeconds = 60;
   let defStyle = "links"; // 'links' | 'simple' | 'full'
   let activeTypes = new Set(["perfect"]); // near/slant hidden for now, see template.html
 
@@ -83,7 +90,7 @@
       s.every((v) => typeof v === "number" && v >= 0 && v <= 100) &&
       s[0] <= s[1];
     if (stored.diffSplitByLang && typeof stored.diffSplitByLang === "object") {
-      for (const lang of ["en", "nl", "de", "fr", "es"]) {
+      for (const lang of ["en", "nl", "de", "fr", "es", "it"]) {
         const s = stored.diffSplitByLang[lang];
         if (isValidSplit(s)) diffSplitByLang[lang] = s;
       }
@@ -96,6 +103,10 @@
     if (stored.playlistSource === "spotify" || stored.playlistSource === "youtube") playlistSource = stored.playlistSource;
     if (typeof stored.guidelinesOpen === "boolean") guidelinesOpen = stored.guidelinesOpen;
     if (typeof stored.advancedOpen === "boolean") advancedOpen = stored.advancedOpen;
+    if (typeof stored.autoRefreshEnabled === "boolean") autoRefreshEnabled = stored.autoRefreshEnabled;
+    if (typeof stored.autoRefreshSeconds === "number" && stored.autoRefreshSeconds >= 5) {
+      autoRefreshSeconds = stored.autoRefreshSeconds;
+    }
     if (stored.defStyle === "links" || stored.defStyle === "simple" || stored.defStyle === "full") {
       defStyle = stored.defStyle;
     }
@@ -112,6 +123,8 @@
         playlistSource: playlistSourceSelect.value,
         guidelinesOpen: guidelinesDetails.open,
         advancedOpen: advancedDetails.open,
+        autoRefreshEnabled: autoRefreshToggle.checked,
+        autoRefreshSeconds,
         defStyle,
       }));
     } catch (e) {
@@ -150,6 +163,8 @@
   const guidelinesDetails = document.getElementById("guidelinesDetails");
   const advancedDetails = document.getElementById("advancedDetails");
   const singleWordsBtn = document.getElementById("singleWordsBtn");
+  const autoRefreshToggle = document.getElementById("autoRefreshToggle");
+  const autoRefreshSecondsInput = document.getElementById("autoRefreshSeconds");
   const defStylePills = document.querySelectorAll(".def-style-pill");
   const showAllDefsRow = document.getElementById("showAllDefsRow");
   const showAllDefsBtn = document.getElementById("showAllDefsBtn");
@@ -598,6 +613,39 @@
   refreshBtnTop.addEventListener("click", () => generate(true));
   refreshBtnBottom.addEventListener("click", () => generate(true));
 
+  // Auto-refresh: regenerates rhymes on a timer so this can run hands-free
+  // (e.g. alongside "Hide UI") without needing to tap refresh every time.
+  // Deliberately doesn't scroll — a periodic jump would be disruptive
+  // exactly when this is most useful, mid-freestyle.
+  let autoRefreshTimer = null;
+
+  function clampAutoRefreshSeconds(v) {
+    if (!Number.isFinite(v)) return 60;
+    return Math.min(3600, Math.max(5, Math.round(v)));
+  }
+
+  function updateAutoRefresh() {
+    if (autoRefreshTimer) {
+      clearInterval(autoRefreshTimer);
+      autoRefreshTimer = null;
+    }
+    if (autoRefreshToggle.checked) {
+      autoRefreshTimer = setInterval(() => generate(), autoRefreshSeconds * 1000);
+    }
+  }
+
+  autoRefreshToggle.addEventListener("change", () => {
+    updateAutoRefresh();
+    saveSettings();
+  });
+
+  autoRefreshSecondsInput.addEventListener("change", () => {
+    autoRefreshSeconds = clampAutoRefreshSeconds(parseInt(autoRefreshSecondsInput.value, 10));
+    autoRefreshSecondsInput.value = autoRefreshSeconds;
+    updateAutoRefresh(); // restart on the new interval so a change takes effect immediately
+    saveSettings();
+  });
+
   function updatePlaylistVisibility() {
     playlistPanel.hidden = !playlistToggle.checked;
   }
@@ -655,12 +703,15 @@
   playlistSourceSelect.value = playlistSource;
   updatePlaylistSource();
   if (customCountActive) customCountInput.value = selectedCount;
+  autoRefreshToggle.checked = autoRefreshEnabled;
+  autoRefreshSecondsInput.value = autoRefreshSeconds;
   setLangPillsUI();
   setCountPillsUI();
   setTypePillsUI();
   renderDiffUI();
   updatePlaylistVisibility();
   updateHideUiUI();
+  updateAutoRefresh();
   generate();
 })();
 
