@@ -5,11 +5,32 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Rhyme Pairs — Rap Practice Generator</title>
 <link rel="stylesheet" href="data/styles.css">
+<script>
+// Applies the saved color scheme before first paint so switching themes
+// doesn't flash the default dark theme for a frame; js/app.js re-applies
+// the same value once it's loaded and owns the switcher's click handling.
+(function () {
+  try {
+    var s = JSON.parse(localStorage.getItem("rhymeflow:settings"));
+    if (s && s.theme) document.documentElement.setAttribute("data-theme", s.theme);
+  } catch (e) {}
+})();
+</script>
 </head>
 <body>
 <div class="wrap">
 
-  <button class="btn-ghost hide-ui-btn" id="hideUiBtn">Hide UI</button>
+  <div class="floating-controls">
+    <div class="theme-switcher" id="themeSwitcher" role="group" aria-label="Color scheme">
+      <button type="button" class="theme-swatch" data-theme="dark" aria-label="Dark theme" aria-pressed="true"></button>
+      <button type="button" class="theme-swatch" data-theme="light" aria-label="Light theme" aria-pressed="false"></button>
+      <button type="button" class="theme-swatch" data-theme="magenta" aria-label="Magenta theme" aria-pressed="false"></button>
+      <button type="button" class="theme-swatch" data-theme="neon-purple" aria-label="Neon purple theme" aria-pressed="false"></button>
+      <button type="button" class="theme-swatch" data-theme="neon" aria-label="Neon theme" aria-pressed="false"></button>
+    </div>
+    <a class="btn-ghost feedback-btn" href="https://github.com/nielswritescode/freestyle-practice/issues/new" target="_blank" rel="noopener noreferrer">Feedback</a>
+    <button class="btn-ghost hide-ui-btn" id="hideUiBtn">Hide UI</button>
+  </div>
 
   <div class="settings-col">
     <header class="top">
@@ -40,6 +61,24 @@
         </ol>
       </div>
     </details>
+
+    <div class="panel" id="practicesPanel">
+      <div class="row">
+        <div class="label">Practices</div>
+        <button type="button" class="pill practice-pill" id="simpleRhymePracticeBtn" data-practice="simple-rhyme" aria-expanded="false">Simple Rhyme</button>
+      </div>
+      <div class="collapsible-body guidelines-body practice-content" id="practiceContent" hidden>
+        <ol>
+          <li>
+            Say the word on count 4. On count 8, come up with your own rhyme.
+            <ul class="guidelines-levels">
+              <li><b>Level 2:</b> Think of 2 words and choose the second one.</li>
+            </ul>
+          </li>
+          <li>If you can't think of any, say a nonsense rhyme and go back to it after the practice has ended.</li>
+        </ol>
+      </div>
+    </div>
 
     <div class="panel">
       <div class="row">
@@ -75,6 +114,17 @@
           <span class="diff-legend-item diff-complex"><i></i>Complex <b id="diffPctHard"></b></span>
         </div>
       </div>
+      <div class="row">
+        <div class="label">Syllables per word</div>
+        <div class="diff-slider syl-slider" id="sylSlider">
+          <div class="diff-slider-track syl-slider-track">
+            <div class="syl-slider-fill" id="sylSliderFill"></div>
+          </div>
+          <button type="button" class="diff-handle" id="sylHandleMin" role="slider" aria-label="Minimum syllables" aria-valuemin="1" aria-valuemax="6"></button>
+          <button type="button" class="diff-handle" id="sylHandleMax" role="slider" aria-label="Maximum syllables" aria-valuemin="1" aria-valuemax="6"></button>
+        </div>
+        <span class="range-value" id="sylRangeValue">Any</span>
+      </div>
       <div class="row" style="display:none">
         <div class="label">Rhyme type</div>
         <button class="pill type-pill type-perfect" data-type="perfect">Perfect</button>
@@ -106,8 +156,18 @@
         </div>
         <div class="status-msg" id="csvStatus">Using the built-in 11,000-word library.</div>
         <div class="row" style="margin-top:14px;">
+          <div class="label">Sensitive words</div>
+          <button type="button" class="pill sensitive-mode-pill" data-sensitive-mode="off">Off</button>
+          <button type="button" class="pill sensitive-mode-pill" data-sensitive-mode="on">Filter out</button>
+          <button type="button" class="pill sensitive-mode-pill" data-sensitive-mode="only">Only</button>
+        </div>
+        <div class="row" style="margin-top:14px;">
           <div class="label">Reveal mode</div>
-          <button class="btn-ghost" id="singleWordsBtn">Single words</button>
+          <button type="button" class="pill reveal-mode-pill active" data-reveal-mode="pairs">Pairs</button>
+          <button type="button" class="pill reveal-mode-pill" data-reveal-mode="words">Single words</button>
+          <button type="button" class="pill reveal-mode-pill" data-reveal-mode="syllable">Single syllable</button>
+          <button type="button" class="pill reveal-mode-pill" data-reveal-mode="letter">Single letter</button>
+          <button type="button" class="pill reveal-mode-pill" data-reveal-mode="family">Rhyme family</button>
         </div>
         <div class="row" style="margin-top:14px;">
           <label class="checkbox-row">
@@ -125,10 +185,6 @@
         </div>
         <div class="row" id="showAllDefsRow" style="margin-top:10px;">
           <button class="btn-ghost" id="showAllDefsBtn">Show all definitions</button>
-        </div>
-        <div class="row" style="margin-top:14px;">
-          <div class="label">Feedback</div>
-          <a class="btn-ghost" href="https://github.com/nielswritescode/freestyle-practice/issues/new" target="_blank" rel="noopener noreferrer">Report a bug / Request a feature</a>
         </div>
       </div>
     </details>
@@ -160,6 +216,7 @@
 <script src="data/words-data-it.js"></script>
 <script src="data/cmu-data.js"></script>
 <script src="data/wordnet-data.js"></script>
+<script src="data/sensitive-words.js"></script>
 <script src="js/phonetics-en.js"></script>
 <script src="js/rhyme-classify.js"></script>
 <script src="js/pair-generator.js"></script>

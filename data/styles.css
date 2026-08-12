@@ -16,6 +16,73 @@
   --diff-mid:#e0a83c;
   --diff-hard:#c9668a;
 }
+/* Color schemes — swapped in by setting data-theme on <html> (js/app.js).
+   No data-theme attribute (or data-theme="dark") keeps the :root defaults
+   above, which is the original/default look. */
+:root[data-theme="light"]{
+  --bg:#faf8f3;
+  --panel:#ffffff;
+  --panel-2:#f1ede4;
+  --ink:#211f1a;
+  --ink-dim:#6b6355;
+  --line:#e2dcd0;
+  --accent:#c9971f;
+  --accent-ink:#1c1a15;
+  --perfect:#c9971f;
+  --near:#c46a2c;
+  --slant:#a8434b;
+  --diff-easy:#3f9556;
+  --diff-mid:#b9822a;
+  --diff-hard:#a8456a;
+}
+:root[data-theme="magenta"]{
+  --bg:#1a0f16;
+  --panel:#241521;
+  --panel-2:#2e1a2a;
+  --ink:#f6e9f2;
+  --ink-dim:#b592ab;
+  --line:#3d2438;
+  --accent:#ff3fa4;
+  --accent-ink:#1a0f16;
+  --perfect:#ff3fa4;
+  --near:#ff7ab8;
+  --slant:#c9457f;
+  --diff-easy:#7ec488;
+  --diff-mid:#e0a83c;
+  --diff-hard:#c9668a;
+}
+:root[data-theme="neon-purple"]{
+  --bg:#0d0a1a;
+  --panel:#161129;
+  --panel-2:#1e1836;
+  --ink:#efe9ff;
+  --ink-dim:#a79bd1;
+  --line:#2f2650;
+  --accent:#9d4eff;
+  --accent-ink:#0d0a1a;
+  --perfect:#9d4eff;
+  --near:#c084fc;
+  --slant:#7c3aed;
+  --diff-easy:#4ade80;
+  --diff-mid:#a78bfa;
+  --diff-hard:#f472b6;
+}
+:root[data-theme="neon"]{
+  --bg:#08090a;
+  --panel:#101214;
+  --panel-2:#161a1d;
+  --ink:#eafffb;
+  --ink-dim:#7fd9c4;
+  --line:#1f2b28;
+  --accent:#00ffc8;
+  --accent-ink:#06110d;
+  --perfect:#00ffc8;
+  --near:#ff2fd0;
+  --slant:#2fe0ff;
+  --diff-easy:#39ff88;
+  --diff-mid:#faff3c;
+  --diff-hard:#ff2f6e;
+}
 *{box-sizing:border-box;}
 html,body{margin:0;padding:0;}
 body{
@@ -159,6 +226,9 @@ h1 span{color:var(--accent);}
 .pill.type-perfect.active{background:var(--perfect); border-color:var(--perfect);}
 .pill.type-near.active{background:var(--near); border-color:var(--near);}
 .pill.type-slant.active{background:var(--slant); border-color:var(--slant);}
+/* Flags "Only" as the outlier choice of the three sensitive-words modes —
+   reuses --slant rather than adding a new color for a single active state. */
+.pill.sensitive-mode-pill[data-sensitive-mode="only"].active{background:var(--slant); border-color:var(--slant); color:var(--ink);}
 
 .diff-slider{
   position:relative;
@@ -208,6 +278,23 @@ h1 span{color:var(--accent);}
 .diff-legend-item.diff-complex i{background:var(--diff-hard);}
 .diff-legend-item b{color:var(--ink); font-weight:700;}
 
+/* Syllables-per-word range: reuses the diff-slider's track/handle look
+   (.diff-slider, .diff-slider-track, .diff-handle) since it's the same
+   two-handle-on-a-bar interaction, just over 6 discrete syllable counts
+   instead of a continuous 0-100 split, and with one accent-colored "in
+   range" fill instead of three difficulty segments. */
+.syl-slider{
+  width:auto;
+  flex:1;
+  min-width:160px;
+}
+.syl-slider-fill{
+  position:absolute;
+  top:0;
+  bottom:0;
+  background:var(--accent);
+}
+
 input[type="number"]{
   width:72px;
   background:var(--panel-2);
@@ -219,6 +306,15 @@ input[type="number"]{
   font-family:'Inter',sans-serif;
 }
 input[type="number"]:focus-visible{outline:2px solid var(--accent);}
+
+.range-value{
+  font-family:'Space Grotesk',sans-serif;
+  font-size:13px;
+  font-weight:700;
+  color:var(--ink);
+  min-width:28px;
+  text-align:center;
+}
 
 .checkbox-row{
   display:flex;
@@ -283,16 +379,60 @@ input[type="number"]:focus-visible{outline:2px solid var(--accent);}
 .btn-ghost:hover{color:var(--ink); border-color:#54493a;}
 a.btn-ghost{text-decoration:none; display:inline-block;}
 
-.hide-ui-btn{
+/* Fixed top-right cluster: the theme switcher, Feedback link, and Hide UI
+   live outside the settings panels entirely (not inside .settings-col), so
+   all three stay put — and reachable — even while the rest of the settings
+   UI is hidden. */
+.floating-controls{
   position:fixed;
   top:14px;
   right:14px;
   z-index:20;
+  display:flex;
+  align-items:center;
+  gap:10px;
+  flex-wrap:wrap;
+  justify-content:flex-end;
+}
+.hide-ui-btn,
+.feedback-btn{
   background:var(--panel);
   box-shadow:0 2px 10px rgba(0,0,0,.35);
   padding:8px 14px;
   font-size:12px;
 }
+
+/* Each swatch shows its scheme's actual colors rather than being styled as
+   another pill, so picking a theme is a glance-and-click, not another
+   settings row to read. */
+.theme-switcher{
+  display:flex;
+  gap:8px;
+  background:var(--panel);
+  border:1px solid var(--line);
+  border-radius:14px;
+  padding:8px;
+  box-shadow:0 2px 10px rgba(0,0,0,.35);
+}
+.theme-swatch{
+  width:26px;
+  height:26px;
+  border-radius:10px;
+  border:2px solid rgba(0,0,0,.28);
+  padding:0;
+  cursor:pointer;
+  transition:transform .12s ease, box-shadow .12s ease;
+}
+.theme-swatch:hover{transform:scale(1.1);}
+.theme-swatch:focus-visible{outline:2px solid var(--ink); outline-offset:2px;}
+.theme-swatch.active{
+  box-shadow:0 0 0 2px var(--panel), 0 0 0 4px var(--ink);
+}
+.theme-swatch[data-theme="dark"]{background:linear-gradient(135deg, #15130f 50%, #f2c230 50%);}
+.theme-swatch[data-theme="light"]{background:linear-gradient(135deg, #faf8f3 50%, #c9971f 50%);}
+.theme-swatch[data-theme="magenta"]{background:linear-gradient(135deg, #1a0f16 50%, #ff3fa4 50%);}
+.theme-swatch[data-theme="neon-purple"]{background:linear-gradient(135deg, #0d0a1a 50%, #9d4eff 50%);}
+.theme-swatch[data-theme="neon"]{background:linear-gradient(135deg, #08090a 50%, #00ffc8 50%);}
 
 .csv-row input[type="file"]{
   color:var(--ink-dim);

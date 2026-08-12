@@ -69,6 +69,22 @@
   let defStyle = "links"; // 'links' | 'simple' | 'full'
   let activeTypes = new Set(["perfect"]); // near/slant hidden for now, see template.html
 
+  // Upper handle maxes out at "Any" (no cap) rather than literally capping
+  // at 6 — most words are well under that anyway, so it reads as "off" at
+  // the top. The lower handle has no such escape hatch: 1 already is the
+  // real minimum, so it's a no-op filter at the bottom.
+  const SYLLABLE_SLIDER_MAX = 6;
+  let minSyllables = 1;
+  let maxSyllables = SYLLABLE_SLIDER_MAX;
+
+  // 'off' = no filtering, 'on' = exclude sensitive words (default), 'only'
+  // = the inverse — restrict the pool to just the sensitive-words list.
+  const SENSITIVE_MODES = ["off", "on", "only"];
+  let sensitiveWordMode = "on";
+
+  const VALID_THEMES = ["dark", "light", "magenta", "neon-purple", "neon"];
+  let currentTheme = "dark";
+
   // ---- persisted settings ----
   // Everything here is a user preference, not session data (a CSV upload
   // isn't remembered — file inputs can't be restored anyway, and Dutch/
@@ -110,6 +126,14 @@
     if (stored.defStyle === "links" || stored.defStyle === "simple" || stored.defStyle === "full") {
       defStyle = stored.defStyle;
     }
+    if (typeof stored.maxSyllables === "number" && stored.maxSyllables >= 1 && stored.maxSyllables <= SYLLABLE_SLIDER_MAX) {
+      maxSyllables = stored.maxSyllables;
+    }
+    if (typeof stored.minSyllables === "number" && stored.minSyllables >= 1 && stored.minSyllables <= maxSyllables) {
+      minSyllables = stored.minSyllables;
+    }
+    if (SENSITIVE_MODES.includes(stored.sensitiveWordMode)) sensitiveWordMode = stored.sensitiveWordMode;
+    if (VALID_THEMES.includes(stored.theme)) currentTheme = stored.theme;
   }
 
   function saveSettings() {
@@ -126,6 +150,10 @@
         autoRefreshEnabled: autoRefreshToggle.checked,
         autoRefreshSeconds,
         defStyle,
+        minSyllables,
+        maxSyllables,
+        sensitiveWordMode,
+        theme: currentTheme,
       }));
     } catch (e) {
       // storage full or unavailable (e.g. private browsing) — settings
@@ -162,7 +190,7 @@
   const youtubeEmbed = document.getElementById("youtubeEmbed");
   const guidelinesDetails = document.getElementById("guidelinesDetails");
   const advancedDetails = document.getElementById("advancedDetails");
-  const singleWordsBtn = document.getElementById("singleWordsBtn");
+  const revealModePills = document.querySelectorAll(".reveal-mode-pill");
   const autoRefreshToggle = document.getElementById("autoRefreshToggle");
   const autoRefreshSecondsInput = document.getElementById("autoRefreshSeconds");
   const defStylePills = document.querySelectorAll(".def-style-pill");
@@ -182,6 +210,124 @@
   const diffPctEasy = document.getElementById("diffPctEasy");
   const diffPctMid = document.getElementById("diffPctMid");
   const diffPctHard = document.getElementById("diffPctHard");
+  const sylSlider = document.getElementById("sylSlider");
+  const sylTrack = sylSlider.querySelector(".diff-slider-track");
+  const sylSliderFill = document.getElementById("sylSliderFill");
+  const sylHandleMin = document.getElementById("sylHandleMin");
+  const sylHandleMax = document.getElementById("sylHandleMax");
+  const sylRangeValue = document.getElementById("sylRangeValue");
+  const sensitiveModePills = document.querySelectorAll(".sensitive-mode-pill");
+  const simpleRhymePracticeBtn = document.getElementById("simpleRhymePracticeBtn");
+  const practiceContent = document.getElementById("practiceContent");
+  const themeSwatches = document.querySelectorAll(".theme-swatch");
+
+  // Heuristic syllable counter (vowel-group count, with a naive silent-e
+  // correction). Not phonetically exact, but the built-in pronunciation data
+  // (js/cmu-decoder.js and the per-language *-rhyme.js decoders) only encodes
+  // each word's rhyming tail, not its full syllable structure, so this is
+  // what backs the "max syllables" slider across all six languages.
+  function countSyllables(word) {
+    const w = word.toLowerCase().replace(/[^a-z]/g, "");
+    if (!w) return 0;
+    const groups = w.match(/[aeiouy]+/g) || [];
+    let count = groups.length || 1;
+    if (count > 1 && /[^aeiouy]e$/.test(w)) count--;
+    return count;
+  }
+
+  // Rhyme-tail boundary, reusing the same vowel-group idea as
+  // countSyllables: the start of the LAST vowel cluster in the word — the
+  // same vowel+coda shape the CMU-based rhyme key uses (js/cmu-decoder.js),
+  // just derived from spelling instead of a pronunciation dictionary so it
+  // works the same way for every language.
+  function lastVowelGroupStart(word) {
+    const re = /[aeiouy]+/gi;
+    let m, start = -1;
+    while ((m = re.exec(word))) start = m.index;
+    return start;
+  }
+  // Only word B (the "answer") ever gets masked — word A stays fully
+  // visible as the prompt. Every mode here is "like Single words" (no real
+  // content leaked) plus exactly one bare unit of hint — never a string of
+  // placeholder dots padded out to the word's real length, which would
+  // leak the length itself. 'pairs' and 'words' pass the word through
+  // unchanged: 'words' hides the whole slot via CSS instead (see
+  // updateRevealModeUI), so what's rendered underneath doesn't matter.
+  function maskedDisplay(word, part) {
+    if (part !== "b") return word;
+    if (revealMode === "syllable") return "•"; // a single mark, no letters, no length hint
+    if (revealMode === "letter") return word.slice(0, 1); // just the first letter, nothing else
+    if (revealMode === "family") {
+      const start = lastVowelGroupStart(word);
+      return start >= 0 ? word.slice(start) : word; // just the rhyming tail, nothing else
+    }
+    return word;
+  }
+
+  const sensitiveWordSets = Object.fromEntries(
+    Object.entries(typeof SENSITIVE_WORDS !== "undefined" ? SENSITIVE_WORDS : {})
+      .map(([lang, words]) => [lang, new Set(words)])
+  );
+
+  // Applies the syllable range and (in "on" mode) the sensitive-words
+  // exclusion to a raw word pool. Called on each tier/CSV pool before
+  // sampling (rather than on the final generated pairs) so proportions from
+  // the difficulty slider still hold, and so a pair never gets built around
+  // a word that's about to be filtered out anyway.
+  // "only" mode is deliberately NOT handled here — see generateSensitiveOnlyPairs.
+  function filterPool(pool) {
+    let out = pool;
+    if (minSyllables > 1) {
+      out = out.filter((w) => countSyllables(w) >= minSyllables);
+    }
+    if (maxSyllables < SYLLABLE_SLIDER_MAX) {
+      out = out.filter((w) => countSyllables(w) <= maxSyllables);
+    }
+    if (sensitiveWordMode === "on") {
+      const blocked = sensitiveWordSets[currentLanguage];
+      if (blocked && blocked.size) out = out.filter((w) => !blocked.has(w));
+    }
+    return out;
+  }
+
+  // The built-in sensitive words for the current language, in scope of the
+  // syllable range but NOT of the difficulty-mix sampling (see
+  // generateSensitiveOnlyPairs) — they're rare enough that leaving them to
+  // the weighted random sample could drop them from the pool entirely on a
+  // given generate() call, defeating "only" mode.
+  function sensitiveWordsInScope() {
+    const blocked = sensitiveWordSets[currentLanguage];
+    if (!blocked || !blocked.size) return [];
+    let out = builtInWords.filter((w) => blocked.has(w));
+    if (minSyllables > 1) out = out.filter((w) => countSyllables(w) >= minSyllables);
+    if (maxSyllables < SYLLABLE_SLIDER_MAX) out = out.filter((w) => countSyllables(w) <= maxSyllables);
+    return out;
+  }
+
+  // "Only" mode should mean "at least one side of the pair is sensitive,"
+  // not "both sides are" — pairing against a pool restricted to sensitive
+  // words only (the old behavior) forced both sides to be sensitive, since
+  // pairs can only be built from words present in the pool. Instead this
+  // pairs the sensitive words against the full normal pool, generates every
+  // pair the combined pool can support (not just `selectedCount` of them —
+  // sensitive words are rare, so a smaller ask could exhaust before finding
+  // enough of them), then keeps only the pairs that touch a sensitive word.
+  function generateSensitiveOnlyPairs(types, getKey) {
+    const blocked = sensitiveWordSets[currentLanguage];
+    const sensitiveWords = sensitiveWordsInScope();
+    if (!blocked || sensitiveWords.length === 0) return [];
+    const pool = activeWordList().concat(sensitiveWords);
+    const abundant = generatePairs(pool, Number.MAX_SAFE_INTEGER, types, getKey);
+    return abundant
+      .filter((p) => blocked.has(p.a) || blocked.has(p.b))
+      .slice(0, selectedCount)
+      // The sensitive word always ends up in slot "a": every reveal mode
+      // only ever masks or hides slot "b" (maskedDisplay, and the
+      // .single-words CSS rule), so this is what makes "Single words" (and
+      // every partial-reveal mode) show the profanity word rather than risk
+      // masking it while showing the ordinary word in the clear.
+      .map((p) => (blocked.has(p.a) ? p : { a: p.b, b: p.a, type: p.type, sound: p.sound }));
+  }
 
   function sampleWithRepeats(pool, n) {
     if (n <= 0 || pool.length === 0) return [];
@@ -201,15 +347,16 @@
     const target = builtInWords.length;
     let out = [];
     for (const tier of ["easy", "intermediate", "complex"]) {
-      out = out.concat(sampleWithRepeats(wordsByTier[tier], Math.round(target * fractions[tier])));
+      const pool = filterPool(wordsByTier[tier]);
+      out = out.concat(sampleWithRepeats(pool, Math.round(target * fractions[tier])));
     }
     return out;
   }
 
   function activeWordList() {
-    if (libraryMode === "only") return csvWords;
+    if (libraryMode === "only") return filterPool(csvWords);
     const weighted = ratioWeightedBuiltIn();
-    if (libraryMode === "add") return weighted.concat(csvWords);
+    if (libraryMode === "add") return weighted.concat(filterPool(csvWords));
     return weighted;
   }
 
@@ -390,6 +537,140 @@
     dragHandle(which, e, diffTrack);
   });
 
+  // Syllable range slider: same two-handle-on-a-bar interaction as the
+  // difficulty-mix slider above (dragHandle/bindDiffHandle), just over 6
+  // discrete syllable counts (1..SYLLABLE_SLIDER_MAX) instead of a
+  // continuous 0-100 split, so it gets its own value/percent conversions
+  // and its own drag driver rather than reusing those directly.
+  function syllablePercent(v) {
+    return ((v - 1) / (SYLLABLE_SLIDER_MAX - 1)) * 100;
+  }
+  function syllableValueFromEvent(evt) {
+    const rect = sylTrack.getBoundingClientRect();
+    const x = clamp(evt.clientX - rect.left, 0, rect.width);
+    return clamp(Math.round(1 + (x / rect.width) * (SYLLABLE_SLIDER_MAX - 1)), 1, SYLLABLE_SLIDER_MAX);
+  }
+  function syllableLabel(v) {
+    return v >= SYLLABLE_SLIDER_MAX ? "Any" : String(v);
+  }
+  function renderSyllableUI() {
+    const p1 = syllablePercent(minSyllables);
+    const p2 = syllablePercent(maxSyllables);
+    sylSliderFill.style.left = p1 + "%";
+    sylSliderFill.style.right = (100 - p2) + "%";
+    sylHandleMin.style.left = p1 + "%";
+    sylHandleMax.style.left = p2 + "%";
+    sylHandleMin.setAttribute("aria-valuenow", String(minSyllables));
+    sylHandleMax.setAttribute("aria-valuenow", String(maxSyllables));
+    if (maxSyllables >= SYLLABLE_SLIDER_MAX) {
+      sylRangeValue.textContent = minSyllables <= 1 ? "Any" : `${minSyllables}+`;
+    } else if (minSyllables === maxSyllables) {
+      sylRangeValue.textContent = String(minSyllables);
+    } else {
+      sylRangeValue.textContent = `${minSyllables}–${syllableLabel(maxSyllables)}`;
+    }
+  }
+
+  function dragSylHandle(which, initialEvent, captureEl) {
+    captureEl.setPointerCapture(initialEvent.pointerId);
+    const onMove = (ev) => {
+      if (!(ev.buttons & 1)) { onUp(); return; }
+      const v = syllableValueFromEvent(ev);
+      if (which === "min") minSyllables = clamp(v, 1, maxSyllables);
+      else maxSyllables = clamp(v, minSyllables, SYLLABLE_SLIDER_MAX);
+      renderSyllableUI();
+    };
+    const onUp = () => {
+      captureEl.removeEventListener("pointermove", onMove);
+      captureEl.removeEventListener("pointerup", onUp);
+      captureEl.removeEventListener("pointercancel", onUp);
+      if (captureEl.hasPointerCapture(initialEvent.pointerId)) {
+        captureEl.releasePointerCapture(initialEvent.pointerId);
+      }
+      saveSettings();
+      generate();
+    };
+    captureEl.addEventListener("pointermove", onMove);
+    captureEl.addEventListener("pointerup", onUp);
+    captureEl.addEventListener("pointercancel", onUp);
+    onMove(initialEvent);
+  }
+
+  function bindSylHandle(handle, which) {
+    handle.addEventListener("pointerdown", (e) => {
+      dragSylHandle(which, e, handle);
+    });
+    handle.addEventListener("keydown", (e) => {
+      let delta = 0;
+      if (e.key === "ArrowLeft" || e.key === "ArrowDown") delta = -1;
+      else if (e.key === "ArrowRight" || e.key === "ArrowUp") delta = 1;
+      else return;
+      e.preventDefault();
+      if (which === "min") minSyllables = clamp(minSyllables + delta, 1, maxSyllables);
+      else maxSyllables = clamp(maxSyllables + delta, minSyllables, SYLLABLE_SLIDER_MAX);
+      renderSyllableUI();
+      saveSettings();
+      generate();
+    });
+  }
+
+  bindSylHandle(sylHandleMin, "min");
+  bindSylHandle(sylHandleMax, "max");
+
+  sylTrack.addEventListener("pointerdown", (e) => {
+    const v = syllableValueFromEvent(e);
+    let which;
+    if (v < minSyllables) which = "min";
+    else if (v > maxSyllables) which = "max";
+    else which = (v - minSyllables) <= (maxSyllables - v) ? "min" : "max";
+    dragSylHandle(which, e, sylTrack);
+  });
+
+  function updateSensitiveModeUI() {
+    sensitiveModePills.forEach((btn) => {
+      btn.classList.toggle("active", btn.dataset.sensitiveMode === sensitiveWordMode);
+    });
+  }
+  sensitiveModePills.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      sensitiveWordMode = btn.dataset.sensitiveMode;
+      updateSensitiveModeUI();
+      saveSettings();
+      generate();
+    });
+  });
+
+  // Practices: each practice button reveals its own guidelines-style content
+  // block below the button row, accordion-style. Only "Simple Rhyme" exists
+  // today, but this stays button-per-practice so more can be added later
+  // without restructuring.
+  simpleRhymePracticeBtn.addEventListener("click", () => {
+    const willOpen = practiceContent.hidden;
+    practiceContent.hidden = !willOpen;
+    simpleRhymePracticeBtn.classList.toggle("active", willOpen);
+    simpleRhymePracticeBtn.setAttribute("aria-expanded", String(willOpen));
+  });
+
+  // Color scheme: swaps the CSS custom properties in data/styles.css by
+  // setting data-theme on <html>. The inline snippet in <head> applies the
+  // saved value before first paint to avoid a flash of the default theme;
+  // this is what keeps it in sync afterwards and handles clicks.
+  function applyTheme() {
+    document.documentElement.setAttribute("data-theme", currentTheme);
+    themeSwatches.forEach((btn) => {
+      const active = btn.dataset.theme === currentTheme;
+      btn.classList.toggle("active", active);
+      btn.setAttribute("aria-pressed", String(active));
+    });
+  }
+  themeSwatches.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      currentTheme = btn.dataset.theme;
+      applyTheme();
+      saveSettings();
+    });
+  });
+
   function parseCsv(text) {
     return text
       .split(/[,\n\r]+/)
@@ -482,13 +763,14 @@
   }
 
   function renderWord(word, part) {
+    const display = maskedDisplay(word, part);
     let inner;
     if (defStyle === "links") {
-      inner = `<a class="word" data-pair-part="${part}" href="${dictionaryUrl(word)}" target="_blank" rel="noopener noreferrer">${word}</a>`;
+      inner = `<a class="word" data-pair-part="${part}" href="${dictionaryUrl(word)}" target="_blank" rel="noopener noreferrer">${display}</a>`;
     } else if (defStyle === "full") {
-      inner = `<span class="word word-full" data-pair-part="${part}" data-word="${word}">${word}</span>`;
+      inner = `<span class="word word-full" data-pair-part="${part}" data-word="${word}">${display}</span>`;
     } else {
-      inner = `<span class="word word-simple" data-pair-part="${part}" data-word="${word}">${word}</span>`;
+      inner = `<span class="word word-simple" data-pair-part="${part}" data-word="${word}">${display}</span>`;
     }
     return `<div class="word-slot" data-pair-part="${part}">${inner}<div class="word-def" hidden></div></div>`;
   }
@@ -596,10 +878,11 @@
   }
 
   function generate(scroll) {
-    const words = activeWordList();
     const types = [...activeTypes];
     const getKey = LANGS[currentLanguage].getKey;
-    const pairs = generatePairs(words, selectedCount, types, getKey);
+    const pairs = sensitiveWordMode === "only"
+      ? generateSensitiveOnlyPairs(types, getKey)
+      : generatePairs(activeWordList(), selectedCount, types, getKey);
     currentPairs = pairs;
     renderPairs(pairs, selectedCount);
     if (scroll) scrollToResults();
@@ -665,19 +948,28 @@
   guidelinesDetails.addEventListener("toggle", saveSettings);
   advancedDetails.addEventListener("toggle", saveSettings);
 
-  // Quiz/reveal mode: hide word B (and the tie arrow) in every pair card so
-  // you can try to come up with the rhyme yourself first, then toggle back
-  // to check. Not persisted — like Hide UI, you want a fresh reveal state
-  // on a new visit. Applies to whatever's currently rendered AND to
-  // anything generated afterwards, since the class lives on the container.
-  let singleWordsMode = false;
-  function updateSingleWordsUI() {
-    pairsContainer.classList.toggle("single-words", singleWordsMode);
-    singleWordsBtn.textContent = singleWordsMode ? "Show pairs" : "Single words";
+  // Quiz/reveal mode: masks word B (the "answer") in every pair card at one
+  // of a few hint strengths so you can try to come up with the rhyme
+  // yourself first, then switch back to "Pairs" to check. Not persisted —
+  // like Hide UI, you want a fresh reveal state on a new visit.
+  //   words    — hide the whole slot (and the tie arrow) via CSS
+  //   syllable — reveal word B's first syllable, mask the rest
+  //   letter   — reveal just its first letter
+  //   family   — reveal its rhyme tail (the vowel+coda it shares with word
+  //              A — see maskedDisplay above), mask the leading consonants
+  let revealMode = "pairs";
+  function updateRevealModeUI() {
+    revealModePills.forEach((btn) => {
+      btn.classList.toggle("active", btn.dataset.revealMode === revealMode);
+    });
+    pairsContainer.classList.toggle("single-words", revealMode === "words");
   }
-  singleWordsBtn.addEventListener("click", () => {
-    singleWordsMode = !singleWordsMode;
-    updateSingleWordsUI();
+  revealModePills.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      revealMode = btn.dataset.revealMode;
+      updateRevealModeUI();
+      renderPairs(currentPairs, selectedCount); // re-mask what's already on screen, no new pairs
+    });
   });
 
   // Performance mode: hide every settings panel (and the top action row
@@ -698,7 +990,7 @@
   guidelinesDetails.open = guidelinesOpen;
   advancedDetails.open = advancedOpen;
   setDefStyleUI();
-  updateSingleWordsUI();
+  updateRevealModeUI();
   playlistToggle.checked = playlistVisible;
   playlistSourceSelect.value = playlistSource;
   updatePlaylistSource();
@@ -709,6 +1001,9 @@
   setCountPillsUI();
   setTypePillsUI();
   renderDiffUI();
+  renderSyllableUI();
+  updateSensitiveModeUI();
+  applyTheme();
   updatePlaylistVisibility();
   updateHideUiUI();
   updateAutoRefresh();
