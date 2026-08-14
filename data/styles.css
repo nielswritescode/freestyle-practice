@@ -340,6 +340,14 @@ input[type="range"]:focus-visible{outline:2px solid var(--accent); outline-offse
   cursor:pointer;
 }
 
+/* A plain inline unit suffix (e.g. the "seconds" after the auto-refresh
+   number field) — not .label, which is meant for full-width uppercase row
+   headers and forces onto its own line when used inline like this. */
+.inline-unit{
+  font-size:13px;
+  color:var(--ink-dim);
+}
+
 .playlist-panel{
   max-width:760px;
   margin:22px auto 0;
@@ -397,6 +405,7 @@ body.timer-open .wrap{padding-bottom:240px;}
   gap:8px;
 }
 .timer-sequence[hidden]{display:none;}
+.timer-multi-actions[hidden]{display:none;}
 .timer-square{
   width:40px;
   height:40px;
@@ -419,6 +428,18 @@ body.timer-open .wrap{padding-bottom:240px;}
 }
 .timer-square.done{opacity:.4;}
 #timerLoopBtn.active{background:var(--accent); color:var(--accent-ink); border-color:var(--accent);}
+/* Return/Loop/Confirm read as icons (✕ / ∞ / ✓) rather than text pills —
+   square-ish and a bit larger so a single glyph doesn't look lost. */
+.timer-symbol-btn{
+  width:44px;
+  height:38px;
+  padding:0;
+  font-size:18px;
+  line-height:1;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+}
 /* A <button>, not just a display — clicking the number itself is the only
    way to stop a running timer, so it needs to read as interactive. */
 .timer-countdown{

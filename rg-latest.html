@@ -165,7 +165,7 @@
             <span>Auto-refresh rhymes every</span>
           </label>
           <input type="number" id="autoRefreshSeconds" min="5" max="3600" value="60">
-          <div class="label">seconds</div>
+          <span class="inline-unit">seconds</span>
         </div>
         <div class="row" style="margin-top:14px;">
           <div class="label">Definitions</div>
@@ -214,9 +214,9 @@
         </div>
         <div class="timer-sequence" id="timerSequence" hidden></div>
         <div class="row timer-multi-actions" id="timerMultiActions" hidden>
-          <button type="button" class="btn-ghost" id="timerReturnBtn">Return</button>
-          <button type="button" class="pill" id="timerLoopBtn">Loop</button>
-          <button type="button" class="btn-main" id="timerConfirmBtn">Confirm</button>
+          <button type="button" class="btn-ghost timer-symbol-btn" id="timerReturnBtn" aria-label="Return — undo last">✕</button>
+          <button type="button" class="pill timer-symbol-btn" id="timerLoopBtn" aria-label="Loop">∞</button>
+          <button type="button" class="btn-main timer-symbol-btn" id="timerConfirmBtn" aria-label="Confirm">✓</button>
         </div>
       </div>
     </div>
@@ -246,7 +246,7 @@
       <button type="button" class="theme-swatch" data-theme="neon-purple" aria-label="Neon purple theme" aria-pressed="false"></button>
       <button type="button" class="theme-swatch" data-theme="neon" aria-label="Neon theme" aria-pressed="false"></button>
     </div>
-    <a class="btn-ghost feedback-btn" href="https://github.com/nielswritescode/freestyle-practice/issues/new" target="_blank" rel="noopener noreferrer">Feedback</a>
+    <a class="btn-ghost feedback-btn" href="https://github.com/nielswritescode/freestyle-practice/issues/new" target="_blank" rel="noopener noreferrer">Bug Report / Feature Suggest</a>
   </div>
 
 </div>
