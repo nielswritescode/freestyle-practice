@@ -348,29 +348,37 @@ input[type="range"]:focus-visible{outline:2px solid var(--accent); outline-offse
 .player-embed[hidden]{display:none;}
 #showAllDefsRow[hidden]{display:none;}
 
-/* Practice timer — a fixed overlay pinned to the top-left, deliberately on
-   top of everything else (including .settings-col and "Hide UI" state, like
-   .floating-controls at the top-right) since you want a countdown visible,
-   front and center, while performing — not buried in a settings panel. */
+/* Practice timer — always a fixed bottom bar, on every screen size (not
+   gated behind a max-width media query — that split turned out not to
+   reliably self-select the right layout on every device, so there's now
+   just one layout, everywhere). Deliberately on top of everything else
+   (including .settings-col and "Hide UI" state) since you want a countdown
+   visible, front and center, while performing — not buried in a settings
+   panel. body.timer-open reserves matching space at the bottom of .wrap
+   (see the rule near .pairs) so it never sits on top of a pair card. */
 .timer-panel{
   position:fixed;
-  top:14px;
-  left:14px;
+  bottom:0;
+  left:0;
+  right:0;
   z-index:25;
-  max-width:300px;
+  width:100%;
   background:var(--panel);
-  border:1px solid var(--line);
-  border-radius:14px;
+  border-top:1px solid var(--line);
+  border-radius:16px 16px 0 0;
   padding:16px 18px;
-  box-shadow:0 4px 18px rgba(0,0,0,.4);
+  box-shadow:0 -4px 18px rgba(0,0,0,.4);
   display:flex;
   flex-direction:column;
   align-items:center;
   gap:14px;
   text-align:center;
+  max-height:50vh;
+  overflow-y:auto;
 }
 .timer-panel[hidden]{display:none;}
 .timer-panel .row{justify-content:center;}
+body.timer-open .wrap{padding-bottom:240px;}
 .timer-setup[hidden],
 .timer-running[hidden]{display:none;}
 .timer-setup,
@@ -467,27 +475,33 @@ input[type="range"]:focus-visible{outline:2px solid var(--accent); outline-offse
 .btn-ghost:hover{color:var(--ink); border-color:#54493a;}
 a.btn-ghost{text-decoration:none; display:inline-block;}
 
-/* Fixed top-right cluster: the theme switcher, Feedback link, and Hide UI
-   live outside the settings panels entirely (not inside .settings-col), so
-   all three stay put — and reachable — even while the rest of the settings
-   UI is hidden. */
-.floating-controls{
+/* Hide UI lives outside the settings panels entirely (not inside
+   .settings-col), so it stays put — and reachable — even while the rest of
+   the settings UI is hidden. Theme switcher and Feedback used to live here
+   too, fixed at the top-right; they're not persistent anymore (see
+   .footer-bar below) since, unlike Hide UI, there's no reason you'd need
+   either reachable mid-practice. */
+.hide-ui-btn{
   position:fixed;
   top:14px;
   right:14px;
   z-index:20;
-  display:flex;
-  align-items:center;
-  gap:10px;
-  flex-wrap:wrap;
-  justify-content:flex-end;
-}
-.hide-ui-btn,
-.feedback-btn{
   background:var(--panel);
   box-shadow:0 2px 10px rgba(0,0,0,.35);
   padding:8px 14px;
   font-size:12px;
+}
+
+/* A plain, non-fixed bar at the bottom of the page content — scrolls away
+   with everything else instead of staying pinned like the timer does. */
+.footer-bar{
+  max-width:760px;
+  margin:22px auto 0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:14px;
+  flex-wrap:wrap;
 }
 
 /* Each swatch shows its scheme's actual colors rather than being styled as
@@ -670,26 +684,4 @@ span.word.word-delete:hover{
 @media (max-width:520px){
   .pair-card{padding:14px 14px;}
   .pair-words{gap:8px;}
-}
-
-/* Below the single-column breakpoint (see .pairs above) there isn't room
-   for the timer (top-left) and .floating-controls (top-right) side by side,
-   and a top-pinned timer would sit on top of full-width pair cards as they
-   scroll past underneath it. Move it to a bottom sheet instead, which only
-   ever covers a slim strip at the very bottom — never the header/controls,
-   and .timer-open reserves space so it doesn't cover the last pair either. */
-@media (max-width:759px){
-  .timer-panel{
-    top:auto;
-    bottom:0;
-    left:0;
-    right:0;
-    width:100%;
-    max-width:none;
-    border-radius:16px 16px 0 0;
-    max-height:50vh;
-    overflow-y:auto;
-    box-shadow:0 -4px 18px rgba(0,0,0,.4);
-  }
-  body.timer-open .wrap{padding-bottom:240px;}
 }

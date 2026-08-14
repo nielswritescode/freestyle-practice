@@ -20,17 +20,7 @@
 <body>
 <div class="wrap">
 
-  <div class="floating-controls">
-    <div class="theme-switcher" id="themeSwitcher" role="group" aria-label="Color scheme">
-      <button type="button" class="theme-swatch" data-theme="dark" aria-label="Dark theme" aria-pressed="true"></button>
-      <button type="button" class="theme-swatch" data-theme="light" aria-label="Light theme" aria-pressed="false"></button>
-      <button type="button" class="theme-swatch" data-theme="magenta" aria-label="Magenta theme" aria-pressed="false"></button>
-      <button type="button" class="theme-swatch" data-theme="neon-purple" aria-label="Neon purple theme" aria-pressed="false"></button>
-      <button type="button" class="theme-swatch" data-theme="neon" aria-label="Neon theme" aria-pressed="false"></button>
-    </div>
-    <a class="btn-ghost feedback-btn" href="https://github.com/nielswritescode/freestyle-practice/issues/new" target="_blank" rel="noopener noreferrer">Feedback</a>
-    <button class="btn-ghost hide-ui-btn" id="hideUiBtn">Hide UI</button>
-  </div>
+  <button class="btn-ghost hide-ui-btn" id="hideUiBtn">Hide UI</button>
 
   <div class="settings-col">
     <header class="top">
@@ -246,6 +236,17 @@
   <div class="playlist-panel" id="playlistPanel">
     <iframe class="player-embed" id="spotifyEmbed" data-testid="embed-iframe" style="border-radius:12px" src="https://open.spotify.com/embed/playlist/6SZt39ktXkhy8WUJe1CRUv?utm_source=generator&si=29beb8e567bf4077" width="100%" height="152" frameBorder="0" allowfullscreen="" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy"></iframe>
     <iframe class="player-embed" id="youtubeEmbed" hidden style="border-radius:12px" src="https://www.youtube.com/embed/videoseries?list=PL0L_zzLQSZ2V7PR2wj7zOnrOxPlIUKix6" width="100%" height="315" frameBorder="0" allowfullscreen="" allow="autoplay; encrypted-media; picture-in-picture" loading="lazy"></iframe>
+  </div>
+
+  <div class="footer-bar">
+    <div class="theme-switcher" id="themeSwitcher" role="group" aria-label="Color scheme">
+      <button type="button" class="theme-swatch" data-theme="dark" aria-label="Dark theme" aria-pressed="true"></button>
+      <button type="button" class="theme-swatch" data-theme="light" aria-label="Light theme" aria-pressed="false"></button>
+      <button type="button" class="theme-swatch" data-theme="magenta" aria-label="Magenta theme" aria-pressed="false"></button>
+      <button type="button" class="theme-swatch" data-theme="neon-purple" aria-label="Neon purple theme" aria-pressed="false"></button>
+      <button type="button" class="theme-swatch" data-theme="neon" aria-label="Neon theme" aria-pressed="false"></button>
+    </div>
+    <a class="btn-ghost feedback-btn" href="https://github.com/nielswritescode/freestyle-practice/issues/new" target="_blank" rel="noopener noreferrer">Feedback</a>
   </div>
 
 </div>
