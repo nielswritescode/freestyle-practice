@@ -834,6 +834,7 @@
     document.body.classList.toggle("timer-open", timerVisible);
   }
   showTimerBtn.addEventListener("click", () => {
+    primeTimerAudio(); // first real click in the timer UI — best chance to unlock audio on mobile
     timerVisible = !timerVisible;
     updateShowTimerBtnUI();
   });
@@ -878,14 +879,34 @@
   // same reasoning). Each is built from plain oscillator+gain "notes"; peak
   // gain is scaled by timerVolume (0..1) so the volume slider actually
   // affects loudness rather than just clipping.
-  function playTimerSound() {
+  // A single AudioContext, created (or resumed) lazily the first time any
+  // timer control is touched — and reused for every sound after that,
+  // including the one triggered from setInterval when a countdown hits
+  // zero. Mobile browsers only allow *creating/resuming* an AudioContext
+  // synchronously inside a real user-gesture handler (a click); a fresh
+  // `new AudioContext()` made later from a timer callback — which is what
+  // the old code did on every play — gets silently blocked on phones even
+  // though desktop Chrome tolerates it once the page has seen any click.
+  // Reusing an already-running context sidesteps that: only the context's
+  // *creation* needs a gesture, not each sound scheduled on it afterwards.
+  let sharedAudioCtx = null;
+  function primeTimerAudio() {
     try {
       const Ctx = window.AudioContext || window.webkitAudioContext;
-      const ctx = new Ctx();
+      if (!Ctx) return;
+      if (!sharedAudioCtx) sharedAudioCtx = new Ctx();
+      if (sharedAudioCtx.state === "suspended") sharedAudioCtx.resume().catch(() => {});
+    } catch (e) {
+      // Web Audio unavailable — playTimerSound's own try/catch covers playback
+    }
+  }
+
+  function playTimerSound() {
+    try {
+      const ctx = sharedAudioCtx;
+      if (!ctx) return; // never primed by a gesture (e.g. Web Audio blocked) — skip silently
       const now = ctx.currentTime;
-      let voices = 0;
       const note = (freq, start, attack, decay, peak, type) => {
-        voices++;
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
         osc.type = type || "sine";
@@ -898,28 +919,23 @@
         osc.start(t0);
         osc.stop(t0 + attack + decay + 0.05);
       };
-      let totalSeconds;
       if (timerSound === "bell") {
         // A single resonant tone (fundamental + two quiet overtones) with a
         // long decay — sustained and warm, not bright/percussive.
         note(523, 0, 0.01, 1.8, 0.32);
         note(1046, 0, 0.01, 1.4, 0.14);
         note(1568, 0, 0.01, 1.0, 0.08);
-        totalSeconds = 1.9;
       } else if (timerSound === "beep") {
         // Three flat, punchy square-wave beeps — digital/alarm-clock, the
         // most utilitarian and attention-grabbing of the three.
         note(660, 0, 0.005, 0.25, 0.22, "square");
         note(660, 0.45, 0.005, 0.25, 0.22, "square");
         note(660, 0.9, 0.005, 0.25, 0.22, "square");
-        totalSeconds = 1.2;
       } else {
         // "chime" (default): two bright ascending sine notes.
         note(880, 0, 0.05, 0.9, 0.3);
         note(1320, 0.35, 0.05, 0.9, 0.3);
-        totalSeconds = 1.3;
       }
-      setTimeout(() => ctx.close(), (totalSeconds + 0.3) * 1000);
     } catch (e) {
       // Web Audio unavailable/blocked — the visual countdown already shows completion
     }
@@ -932,13 +948,17 @@
   }
   timerSoundPills.forEach((btn) => {
     btn.addEventListener("click", () => {
+      primeTimerAudio();
       timerSound = btn.dataset.timerSound;
       updateTimerSoundUI();
       saveSettings();
       playTimerSound(); // instant feedback so picking between the 3 is actually usable
     });
   });
-  timerSoundPreviewBtn.addEventListener("click", () => playTimerSound());
+  timerSoundPreviewBtn.addEventListener("click", () => {
+    primeTimerAudio();
+    playTimerSound();
+  });
 
   function updateTimerVolumeUI() {
     const pct = Math.round(timerVolume * 100);
@@ -950,6 +970,7 @@
     updateTimerVolumeUI();
   });
   timerVolumeSlider.addEventListener("change", () => {
+    primeTimerAudio();
     saveSettings();
     playTimerSound(); // hear the level you landed on
   });
@@ -1015,6 +1036,7 @@
 
   timerDurationBtns.forEach((btn) => {
     btn.addEventListener("click", () => {
+      primeTimerAudio();
       const minutes = Number(btn.dataset.minutes);
       if (timerMode === "simple") {
         startTimerQueue([minutes]);
@@ -1036,6 +1058,7 @@
   });
 
   timerConfirmBtn.addEventListener("click", () => {
+    primeTimerAudio();
     startTimerQueue([...timerQueuedMinutes]);
   });
 
