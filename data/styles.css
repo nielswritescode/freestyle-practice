@@ -307,6 +307,14 @@ input[type="number"]{
 }
 input[type="number"]:focus-visible{outline:2px solid var(--accent);}
 
+input[type="range"]{
+  flex:1;
+  min-width:120px;
+  accent-color:var(--accent);
+  cursor:pointer;
+}
+input[type="range"]:focus-visible{outline:2px solid var(--accent); outline-offset:2px;}
+
 .range-value{
   font-family:'Space Grotesk',sans-serif;
   font-size:13px;
@@ -662,4 +670,26 @@ span.word.word-delete:hover{
 @media (max-width:520px){
   .pair-card{padding:14px 14px;}
   .pair-words{gap:8px;}
+}
+
+/* Below the single-column breakpoint (see .pairs above) there isn't room
+   for the timer (top-left) and .floating-controls (top-right) side by side,
+   and a top-pinned timer would sit on top of full-width pair cards as they
+   scroll past underneath it. Move it to a bottom sheet instead, which only
+   ever covers a slim strip at the very bottom — never the header/controls,
+   and .timer-open reserves space so it doesn't cover the last pair either. */
+@media (max-width:759px){
+  .timer-panel{
+    top:auto;
+    bottom:0;
+    left:0;
+    right:0;
+    width:100%;
+    max-width:none;
+    border-radius:16px 16px 0 0;
+    max-height:50vh;
+    overflow-y:auto;
+    box-shadow:0 -4px 18px rgba(0,0,0,.4);
+  }
+  body.timer-open .wrap{padding-bottom:240px;}
 }

@@ -93,6 +93,10 @@
   const VALID_THEMES = ["dark", "light", "magenta", "neon-purple", "neon"];
   let currentTheme = "dark";
 
+  const TIMER_SOUNDS = ["chime", "bell", "beep"];
+  let timerSound = "chime";
+  let timerVolume = 0.7; // 0..1, unlike the rest of the timer state this IS persisted — it's a preference, not session state
+
   // ---- persisted settings ----
   // Everything here is a user preference, not session data (a CSV upload
   // isn't remembered — file inputs can't be restored anyway, and Dutch/
@@ -148,6 +152,10 @@
     }
     if (SENSITIVE_MODES.includes(stored.sensitiveWordMode)) sensitiveWordMode = stored.sensitiveWordMode;
     if (VALID_THEMES.includes(stored.theme)) currentTheme = stored.theme;
+    if (TIMER_SOUNDS.includes(stored.timerSound)) timerSound = stored.timerSound;
+    if (typeof stored.timerVolume === "number" && stored.timerVolume >= 0 && stored.timerVolume <= 1) {
+      timerVolume = stored.timerVolume;
+    }
   }
 
   function saveSettings() {
@@ -168,6 +176,8 @@
         maxSyllables,
         sensitiveWordMode,
         theme: currentTheme,
+        timerSound,
+        timerVolume,
         deletedWordsByLang: Object.fromEntries(
           Object.entries(deletedWordSets).map(([lang, set]) => [lang, [...set]])
         ),
@@ -244,6 +254,10 @@
   const timerPanel = document.getElementById("timerPanel");
   const timerSetup = document.getElementById("timerSetup");
   const timerModePills = document.querySelectorAll(".timer-mode-pill");
+  const timerSoundPills = document.querySelectorAll(".timer-sound-pill");
+  const timerSoundPreviewBtn = document.getElementById("timerSoundPreviewBtn");
+  const timerVolumeSlider = document.getElementById("timerVolumeSlider");
+  const timerVolumeValue = document.getElementById("timerVolumeValue");
   const timerDurationBtns = document.querySelectorAll(".timer-duration-btn");
   const timerSequenceEl = document.getElementById("timerSequence");
   const timerMultiActions = document.getElementById("timerMultiActions");
@@ -814,6 +828,10 @@
   function updateShowTimerBtnUI() {
     timerPanel.hidden = !timerVisible;
     showTimerBtn.textContent = timerVisible ? "Hide timer" : "Show timer";
+    // On narrow screens the timer becomes a bottom sheet (see the mobile
+    // media query in styles.css) — this reserves room below the pairs so it
+    // doesn't sit on top of the last one.
+    document.body.classList.toggle("timer-open", timerVisible);
   }
   showTimerBtn.addEventListener("click", () => {
     timerVisible = !timerVisible;
@@ -854,32 +872,87 @@
     return `${m}:${String(s).padStart(2, "0")}`;
   }
 
-  // A short two-note chime via Web Audio rather than an audio file — keeps
-  // the timer fully self-contained/offline like the rest of the app (see
-  // simpleDefinitionOf's WORDNET_DEFS comment for the same reasoning).
-  function playTimerChime() {
+  // Three deliberately different-sounding endings via Web Audio rather than
+  // audio files — keeps the timer fully self-contained/offline like the
+  // rest of the app (see simpleDefinitionOf's WORDNET_DEFS comment for the
+  // same reasoning). Each is built from plain oscillator+gain "notes"; peak
+  // gain is scaled by timerVolume (0..1) so the volume slider actually
+  // affects loudness rather than just clipping.
+  function playTimerSound() {
     try {
       const Ctx = window.AudioContext || window.webkitAudioContext;
       const ctx = new Ctx();
       const now = ctx.currentTime;
-      [880, 1320].forEach((freq, i) => {
+      let voices = 0;
+      const note = (freq, start, attack, decay, peak, type) => {
+        voices++;
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
-        osc.type = "sine";
+        osc.type = type || "sine";
         osc.frequency.value = freq;
-        const start = now + i * 0.12;
-        gain.gain.setValueAtTime(0, start);
-        gain.gain.linearRampToValueAtTime(0.25, start + 0.02);
-        gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.3);
+        const t0 = now + start;
+        gain.gain.setValueAtTime(0, t0);
+        gain.gain.linearRampToValueAtTime(peak * timerVolume, t0 + attack);
+        gain.gain.exponentialRampToValueAtTime(0.0001, t0 + attack + decay);
         osc.connect(gain).connect(ctx.destination);
-        osc.start(start);
-        osc.stop(start + 0.35);
-      });
-      setTimeout(() => ctx.close(), 600);
+        osc.start(t0);
+        osc.stop(t0 + attack + decay + 0.05);
+      };
+      let totalSeconds;
+      if (timerSound === "bell") {
+        // A single resonant tone (fundamental + two quiet overtones) with a
+        // long decay — sustained and warm, not bright/percussive.
+        note(523, 0, 0.01, 1.8, 0.32);
+        note(1046, 0, 0.01, 1.4, 0.14);
+        note(1568, 0, 0.01, 1.0, 0.08);
+        totalSeconds = 1.9;
+      } else if (timerSound === "beep") {
+        // Three flat, punchy square-wave beeps — digital/alarm-clock, the
+        // most utilitarian and attention-grabbing of the three.
+        note(660, 0, 0.005, 0.25, 0.22, "square");
+        note(660, 0.45, 0.005, 0.25, 0.22, "square");
+        note(660, 0.9, 0.005, 0.25, 0.22, "square");
+        totalSeconds = 1.2;
+      } else {
+        // "chime" (default): two bright ascending sine notes.
+        note(880, 0, 0.05, 0.9, 0.3);
+        note(1320, 0.35, 0.05, 0.9, 0.3);
+        totalSeconds = 1.3;
+      }
+      setTimeout(() => ctx.close(), (totalSeconds + 0.3) * 1000);
     } catch (e) {
       // Web Audio unavailable/blocked — the visual countdown already shows completion
     }
   }
+
+  function updateTimerSoundUI() {
+    timerSoundPills.forEach((btn) => {
+      btn.classList.toggle("active", btn.dataset.timerSound === timerSound);
+    });
+  }
+  timerSoundPills.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      timerSound = btn.dataset.timerSound;
+      updateTimerSoundUI();
+      saveSettings();
+      playTimerSound(); // instant feedback so picking between the 3 is actually usable
+    });
+  });
+  timerSoundPreviewBtn.addEventListener("click", () => playTimerSound());
+
+  function updateTimerVolumeUI() {
+    const pct = Math.round(timerVolume * 100);
+    timerVolumeSlider.value = String(pct);
+    timerVolumeValue.textContent = `${pct}%`;
+  }
+  timerVolumeSlider.addEventListener("input", () => {
+    timerVolume = clamp(parseInt(timerVolumeSlider.value, 10), 0, 100) / 100;
+    updateTimerVolumeUI();
+  });
+  timerVolumeSlider.addEventListener("change", () => {
+    saveSettings();
+    playTimerSound(); // hear the level you landed on
+  });
 
   function stopTimerInterval() {
     if (timerIntervalId) {
@@ -906,7 +979,7 @@
       return;
     }
     stopTimerInterval();
-    playTimerChime();
+    playTimerSound();
     timerQueueIndex++;
     if (timerQueueIndex >= timerActiveQueue.length) {
       if (timerLoop) {
@@ -1355,6 +1428,8 @@
   updateDeletedStatus();
   updateShowTimerBtnUI();
   updateTimerModeUI();
+  updateTimerSoundUI();
+  updateTimerVolumeUI();
   playlistToggle.checked = playlistVisible;
   playlistSourceSelect.value = playlistSource;
   updatePlaylistSource();

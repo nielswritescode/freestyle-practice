@@ -133,6 +133,18 @@
           <button type="button" class="pill timer-mode-pill" data-timer-mode="multi">Multi Timer</button>
         </div>
         <div class="row" style="margin-top:14px;">
+          <div class="label">Timer sound</div>
+          <button type="button" class="pill timer-sound-pill active" data-timer-sound="chime">Chime</button>
+          <button type="button" class="pill timer-sound-pill" data-timer-sound="bell">Bell</button>
+          <button type="button" class="pill timer-sound-pill" data-timer-sound="beep">Beep</button>
+          <button type="button" class="btn-ghost" id="timerSoundPreviewBtn">Preview</button>
+        </div>
+        <div class="row" style="margin-top:14px;">
+          <div class="label">Timer volume</div>
+          <input type="range" id="timerVolumeSlider" min="0" max="100" step="5" value="70">
+          <span class="range-value" id="timerVolumeValue">70%</span>
+        </div>
+        <div class="row" style="margin-top:14px;">
           <div class="label">Sensitive words</div>
           <button type="button" class="pill sensitive-mode-pill" data-sensitive-mode="off">Off</button>
           <button type="button" class="pill sensitive-mode-pill" data-sensitive-mode="on">Filter out</button>
