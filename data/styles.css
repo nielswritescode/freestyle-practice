@@ -340,6 +340,86 @@ input[type="number"]:focus-visible{outline:2px solid var(--accent);}
 .player-embed[hidden]{display:none;}
 #showAllDefsRow[hidden]{display:none;}
 
+/* Practice timer — a fixed overlay pinned to the top-left, deliberately on
+   top of everything else (including .settings-col and "Hide UI" state, like
+   .floating-controls at the top-right) since you want a countdown visible,
+   front and center, while performing — not buried in a settings panel. */
+.timer-panel{
+  position:fixed;
+  top:14px;
+  left:14px;
+  z-index:25;
+  max-width:300px;
+  background:var(--panel);
+  border:1px solid var(--line);
+  border-radius:14px;
+  padding:16px 18px;
+  box-shadow:0 4px 18px rgba(0,0,0,.4);
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:14px;
+  text-align:center;
+}
+.timer-panel[hidden]{display:none;}
+.timer-panel .row{justify-content:center;}
+.timer-setup[hidden],
+.timer-running[hidden]{display:none;}
+.timer-setup,
+.timer-picker,
+.timer-running{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:14px;
+  width:100%;
+}
+.timer-sequence{
+  display:flex;
+  flex-wrap:wrap;
+  justify-content:center;
+  gap:8px;
+}
+.timer-sequence[hidden]{display:none;}
+.timer-square{
+  width:40px;
+  height:40px;
+  border-radius:10px;
+  background:var(--panel-2);
+  border:1px solid var(--line);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-family:'Space Grotesk',sans-serif;
+  font-weight:700;
+  font-size:12px;
+  color:var(--ink);
+  flex-shrink:0;
+}
+.timer-square.active{
+  background:var(--accent);
+  color:var(--accent-ink);
+  border-color:var(--accent);
+}
+.timer-square.done{opacity:.4;}
+#timerLoopBtn.active{background:var(--accent); color:var(--accent-ink); border-color:var(--accent);}
+/* A <button>, not just a display — clicking the number itself is the only
+   way to stop a running timer, so it needs to read as interactive. */
+.timer-countdown{
+  border:none;
+  background:none;
+  padding:0;
+  cursor:pointer;
+  font-family:'Space Grotesk',sans-serif;
+  font-weight:700;
+  font-size:clamp(40px,9vw,64px);
+  line-height:1;
+  color:var(--accent);
+  font-variant-numeric:tabular-nums;
+}
+.timer-countdown:hover{filter:brightness(1.15);}
+.timer-countdown:focus-visible{outline:2px solid var(--ink); outline-offset:4px;}
+
 .player-select{
   border:1px solid var(--line);
   background:var(--panel-2);
@@ -523,12 +603,20 @@ a.word:hover{text-decoration:underline;}
 }
 .word-def[hidden]{display:none;}
 span.word.word-simple,
-span.word.word-full{
+span.word.word-full,
+span.word.word-delete{
   cursor:pointer;
 }
 span.word.word-simple:hover,
 span.word.word-full:hover{
   text-decoration:underline;
+}
+/* Reuses --slant (the same color the "Only" sensitive-words pill flags
+   itself with) to mark this as the destructive click, not just another
+   info toggle. */
+span.word.word-delete:hover{
+  color:var(--slant);
+  text-decoration:line-through;
 }
 .tie{
   color:var(--ink-dim);

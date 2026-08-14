@@ -62,21 +62,9 @@
       </div>
     </details>
 
-    <div class="panel" id="practicesPanel">
-      <div class="row">
+    <div class="panel" id="practicesPanel" hidden>
+      <div class="row" id="practicesButtonRow">
         <div class="label">Practices</div>
-        <button type="button" class="pill practice-pill" id="simpleRhymePracticeBtn" data-practice="simple-rhyme" aria-expanded="false">Simple Rhyme</button>
-      </div>
-      <div class="collapsible-body guidelines-body practice-content" id="practiceContent" hidden>
-        <ol>
-          <li>
-            Say the word on count 4. On count 8, come up with your own rhyme.
-            <ul class="guidelines-levels">
-              <li><b>Level 2:</b> Think of 2 words and choose the second one.</li>
-            </ul>
-          </li>
-          <li>If you can't think of any, say a nonsense rhyme and go back to it after the practice has ended.</li>
-        </ol>
       </div>
     </div>
 
@@ -114,17 +102,6 @@
           <span class="diff-legend-item diff-complex"><i></i>Complex <b id="diffPctHard"></b></span>
         </div>
       </div>
-      <div class="row">
-        <div class="label">Syllables per word</div>
-        <div class="diff-slider syl-slider" id="sylSlider">
-          <div class="diff-slider-track syl-slider-track">
-            <div class="syl-slider-fill" id="sylSliderFill"></div>
-          </div>
-          <button type="button" class="diff-handle" id="sylHandleMin" role="slider" aria-label="Minimum syllables" aria-valuemin="1" aria-valuemax="6"></button>
-          <button type="button" class="diff-handle" id="sylHandleMax" role="slider" aria-label="Maximum syllables" aria-valuemin="1" aria-valuemax="6"></button>
-        </div>
-        <span class="range-value" id="sylRangeValue">Any</span>
-      </div>
       <div class="row" style="display:none">
         <div class="label">Rhyme type</div>
         <button class="pill type-pill type-perfect" data-type="perfect">Perfect</button>
@@ -146,20 +123,31 @@
     <details class="panel collapsible-panel" id="advancedDetails">
       <summary>Advanced</summary>
       <div class="collapsible-body">
-        <div class="row csv-row">
-          <div class="label" id="wordListLabel">Word list — 11,000 built in, or add your own</div>
-          <input type="file" id="csvInput" accept=".csv,text/csv">
-          <button class="btn-ghost" id="csvAddBtn">Add to library</button>
-          <button class="btn-ghost" id="csvOnlyBtn">Use only these</button>
-          <button class="btn-ghost" id="csvResetBtn">Reset to built-in</button>
-          <button class="btn-ghost" id="csvExampleBtn">Download example CSV</button>
+        <div class="row">
+          <div class="label">Practice timer</div>
+          <button type="button" class="btn-ghost" id="showTimerBtn">Show timer</button>
         </div>
-        <div class="status-msg" id="csvStatus">Using the built-in 11,000-word library.</div>
+        <div class="row" style="margin-top:14px;">
+          <div class="label">Timer mode</div>
+          <button type="button" class="pill timer-mode-pill active" data-timer-mode="simple">Simple Timer</button>
+          <button type="button" class="pill timer-mode-pill" data-timer-mode="multi">Multi Timer</button>
+        </div>
         <div class="row" style="margin-top:14px;">
           <div class="label">Sensitive words</div>
           <button type="button" class="pill sensitive-mode-pill" data-sensitive-mode="off">Off</button>
           <button type="button" class="pill sensitive-mode-pill" data-sensitive-mode="on">Filter out</button>
           <button type="button" class="pill sensitive-mode-pill" data-sensitive-mode="only">Only</button>
+        </div>
+        <div class="row" style="margin-top:14px;">
+          <div class="label">Syllables per word</div>
+          <div class="diff-slider syl-slider" id="sylSlider">
+            <div class="diff-slider-track syl-slider-track">
+              <div class="syl-slider-fill" id="sylSliderFill"></div>
+            </div>
+            <button type="button" class="diff-handle" id="sylHandleMin" role="slider" aria-label="Minimum syllables" aria-valuemin="1" aria-valuemax="6"></button>
+            <button type="button" class="diff-handle" id="sylHandleMax" role="slider" aria-label="Maximum syllables" aria-valuemin="1" aria-valuemax="6"></button>
+          </div>
+          <span class="range-value" id="sylRangeValue">Any</span>
         </div>
         <div class="row" style="margin-top:14px;">
           <div class="label">Reveal mode</div>
@@ -182,16 +170,58 @@
           <button class="pill def-style-pill" data-def-style="links">Links</button>
           <button class="pill def-style-pill" data-def-style="simple">Simple Definition</button>
           <button class="pill def-style-pill" data-def-style="full">Full definition</button>
+          <button class="pill def-style-pill" data-def-style="delete">Word deletion</button>
         </div>
         <div class="row" id="showAllDefsRow" style="margin-top:10px;">
           <button class="btn-ghost" id="showAllDefsBtn">Show all definitions</button>
         </div>
+        <div class="row" style="margin-top:14px;">
+          <div class="label">Deleted words</div>
+          <button class="btn-ghost" id="downloadDeletedBtn">Download deleted words</button>
+          <button class="btn-ghost" id="clearDeletedBtn">Clear deleted words</button>
+        </div>
+        <div class="status-msg" id="deletedStatus">No words deleted yet.</div>
+        <div class="row csv-row" style="margin-top:14px;">
+          <div class="label" id="wordListLabel">Word list — 11,000 built in, or add your own</div>
+          <input type="file" id="csvInput" accept=".csv,text/csv">
+          <button class="btn-ghost" id="csvAddBtn">Add to library</button>
+          <button class="btn-ghost" id="csvOnlyBtn">Use only these</button>
+          <button class="btn-ghost" id="csvResetBtn">Reset to built-in</button>
+          <button class="btn-ghost" id="csvExampleBtn">Download example CSV</button>
+        </div>
+        <div class="status-msg" id="csvStatus">Using the built-in 11,000-word library.</div>
       </div>
     </details>
 
     <div class="actions">
       <button class="btn-main refresh-btn" id="refreshBtnTop">Create rhymes</button>
       <div class="count-info" id="countInfo"></div>
+    </div>
+  </div>
+
+  <div class="panel timer-panel" id="timerPanel" hidden>
+    <div class="timer-setup" id="timerSetup">
+      <div class="timer-picker" id="timerPicker">
+        <div class="row timer-duration-row" id="timerDurationRow">
+          <button type="button" class="pill timer-duration-btn" data-minutes="5">5m</button>
+          <button type="button" class="pill timer-duration-btn" data-minutes="10">10m</button>
+          <button type="button" class="pill timer-duration-btn" data-minutes="15">15m</button>
+          <button type="button" class="pill timer-duration-btn" data-minutes="20">20m</button>
+          <button type="button" class="pill timer-duration-btn" data-minutes="25">25m</button>
+          <button type="button" class="pill timer-duration-btn" data-minutes="30">30m</button>
+        </div>
+        <div class="timer-sequence" id="timerSequence" hidden></div>
+        <div class="row timer-multi-actions" id="timerMultiActions" hidden>
+          <button type="button" class="btn-ghost" id="timerReturnBtn">Return</button>
+          <button type="button" class="pill" id="timerLoopBtn">Loop</button>
+          <button type="button" class="btn-main" id="timerConfirmBtn">Confirm</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="timer-running" id="timerRunning" hidden>
+      <div class="timer-sequence" id="timerRunningSequence"></div>
+      <button type="button" class="timer-countdown" id="timerCountdown" aria-label="Stop timer">0:00</button>
     </div>
   </div>
 

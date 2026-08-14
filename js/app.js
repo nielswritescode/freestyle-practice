@@ -58,6 +58,14 @@
   // arrays are references. Repointed on language switch, see below.
   let diffSplit = diffSplitByLang[currentLanguage];
 
+  // Word-deletion mode: clicking a word (in place of showing a definition)
+  // permanently excludes it from future generate() calls for the language
+  // it was clicked in — a word's spelling doesn't carry across languages,
+  // so like diffSplitByLang this is kept per-language rather than global.
+  const deletedWordSets = {
+    en: new Set(), nl: new Set(), de: new Set(), fr: new Set(), es: new Set(), it: new Set(),
+  };
+
   let selectedCount = 20;
   let customCountActive = false;
   let playlistVisible = true;
@@ -66,7 +74,7 @@
   let advancedOpen = false;
   let autoRefreshEnabled = false;
   let autoRefreshSeconds = 60;
-  let defStyle = "links"; // 'links' | 'simple' | 'full'
+  let defStyle = "links"; // 'links' | 'simple' | 'full' | 'delete'
   let activeTypes = new Set(["perfect"]); // near/slant hidden for now, see template.html
 
   // Upper handle maxes out at "Any" (no cap) rather than literally capping
@@ -123,8 +131,14 @@
     if (typeof stored.autoRefreshSeconds === "number" && stored.autoRefreshSeconds >= 5) {
       autoRefreshSeconds = stored.autoRefreshSeconds;
     }
-    if (stored.defStyle === "links" || stored.defStyle === "simple" || stored.defStyle === "full") {
+    if (["links", "simple", "full", "delete"].includes(stored.defStyle)) {
       defStyle = stored.defStyle;
+    }
+    if (stored.deletedWordsByLang && typeof stored.deletedWordsByLang === "object") {
+      for (const lang of ["en", "nl", "de", "fr", "es", "it"]) {
+        const arr = stored.deletedWordsByLang[lang];
+        if (Array.isArray(arr)) deletedWordSets[lang] = new Set(arr.filter((w) => typeof w === "string"));
+      }
     }
     if (typeof stored.maxSyllables === "number" && stored.maxSyllables >= 1 && stored.maxSyllables <= SYLLABLE_SLIDER_MAX) {
       maxSyllables = stored.maxSyllables;
@@ -154,6 +168,9 @@
         maxSyllables,
         sensitiveWordMode,
         theme: currentTheme,
+        deletedWordsByLang: Object.fromEntries(
+          Object.entries(deletedWordSets).map(([lang, set]) => [lang, [...set]])
+        ),
       }));
     } catch (e) {
       // storage full or unavailable (e.g. private browsing) — settings
@@ -196,6 +213,9 @@
   const defStylePills = document.querySelectorAll(".def-style-pill");
   const showAllDefsRow = document.getElementById("showAllDefsRow");
   const showAllDefsBtn = document.getElementById("showAllDefsBtn");
+  const downloadDeletedBtn = document.getElementById("downloadDeletedBtn");
+  const clearDeletedBtn = document.getElementById("clearDeletedBtn");
+  const deletedStatus = document.getElementById("deletedStatus");
   const hideUiBtn = document.getElementById("hideUiBtn");
   const settingsCol = document.querySelector(".settings-col");
   const pairsContainer = document.getElementById("pairsContainer");
@@ -217,9 +237,22 @@
   const sylHandleMax = document.getElementById("sylHandleMax");
   const sylRangeValue = document.getElementById("sylRangeValue");
   const sensitiveModePills = document.querySelectorAll(".sensitive-mode-pill");
-  const simpleRhymePracticeBtn = document.getElementById("simpleRhymePracticeBtn");
-  const practiceContent = document.getElementById("practiceContent");
+  const practicesPanel = document.getElementById("practicesPanel");
+  const practicesButtonRow = document.getElementById("practicesButtonRow");
   const themeSwatches = document.querySelectorAll(".theme-swatch");
+  const showTimerBtn = document.getElementById("showTimerBtn");
+  const timerPanel = document.getElementById("timerPanel");
+  const timerSetup = document.getElementById("timerSetup");
+  const timerModePills = document.querySelectorAll(".timer-mode-pill");
+  const timerDurationBtns = document.querySelectorAll(".timer-duration-btn");
+  const timerSequenceEl = document.getElementById("timerSequence");
+  const timerMultiActions = document.getElementById("timerMultiActions");
+  const timerReturnBtn = document.getElementById("timerReturnBtn");
+  const timerLoopBtn = document.getElementById("timerLoopBtn");
+  const timerConfirmBtn = document.getElementById("timerConfirmBtn");
+  const timerRunningEl = document.getElementById("timerRunning");
+  const timerRunningSequenceEl = document.getElementById("timerRunningSequence");
+  const timerCountdownEl = document.getElementById("timerCountdown");
 
   // Heuristic syllable counter (vowel-group count, with a naive silent-e
   // correction). Not phonetically exact, but the built-in pronunciation data
@@ -269,11 +302,11 @@
       .map(([lang, words]) => [lang, new Set(words)])
   );
 
-  // Applies the syllable range and (in "on" mode) the sensitive-words
-  // exclusion to a raw word pool. Called on each tier/CSV pool before
-  // sampling (rather than on the final generated pairs) so proportions from
-  // the difficulty slider still hold, and so a pair never gets built around
-  // a word that's about to be filtered out anyway.
+  // Applies the syllable range, word-deletion list, and (in "on" mode) the
+  // sensitive-words exclusion to a raw word pool. Called on each tier/CSV
+  // pool before sampling (rather than on the final generated pairs) so
+  // proportions from the difficulty slider still hold, and so a pair never
+  // gets built around a word that's about to be filtered out anyway.
   // "only" mode is deliberately NOT handled here — see generateSensitiveOnlyPairs.
   function filterPool(pool) {
     let out = pool;
@@ -283,6 +316,8 @@
     if (maxSyllables < SYLLABLE_SLIDER_MAX) {
       out = out.filter((w) => countSyllables(w) <= maxSyllables);
     }
+    const deleted = deletedWordSets[currentLanguage];
+    if (deleted && deleted.size) out = out.filter((w) => !deleted.has(w));
     if (sensitiveWordMode === "on") {
       const blocked = sensitiveWordSets[currentLanguage];
       if (blocked && blocked.size) out = out.filter((w) => !blocked.has(w));
@@ -291,16 +326,18 @@
   }
 
   // The built-in sensitive words for the current language, in scope of the
-  // syllable range but NOT of the difficulty-mix sampling (see
-  // generateSensitiveOnlyPairs) — they're rare enough that leaving them to
-  // the weighted random sample could drop them from the pool entirely on a
-  // given generate() call, defeating "only" mode.
+  // syllable range and deletion list but NOT of the difficulty-mix sampling
+  // (see generateSensitiveOnlyPairs) — they're rare enough that leaving
+  // them to the weighted random sample could drop them from the pool
+  // entirely on a given generate() call, defeating "only" mode.
   function sensitiveWordsInScope() {
     const blocked = sensitiveWordSets[currentLanguage];
     if (!blocked || !blocked.size) return [];
     let out = builtInWords.filter((w) => blocked.has(w));
     if (minSyllables > 1) out = out.filter((w) => countSyllables(w) >= minSyllables);
     if (maxSyllables < SYLLABLE_SLIDER_MAX) out = out.filter((w) => countSyllables(w) <= maxSyllables);
+    const deleted = deletedWordSets[currentLanguage];
+    if (deleted && deleted.size) out = out.filter((w) => !deleted.has(w));
     return out;
   }
 
@@ -415,6 +452,7 @@
       csvStatus.textContent = `Using the built-in ${LANG_META[currentLanguage].builtInCount}-word library.`;
       setLangPillsUI();
       renderDiffUI();
+      updateDeletedStatus();
       saveSettings();
       generate();
     });
@@ -640,16 +678,101 @@
     });
   });
 
-  // Practices: each practice button reveals its own guidelines-style content
-  // block below the button row, accordion-style. Only "Simple Rhyme" exists
-  // today, but this stays button-per-practice so more can be added later
-  // without restructuring.
-  simpleRhymePracticeBtn.addEventListener("click", () => {
-    const willOpen = practiceContent.hidden;
-    practiceContent.hidden = !willOpen;
-    simpleRhymePracticeBtn.classList.toggle("active", willOpen);
-    simpleRhymePracticeBtn.setAttribute("aria-expanded", String(willOpen));
-  });
+  // Practices: loaded from data/practices.md — fetched (not <script src>'d
+  // like every other data file) specifically so it's a plain markdown file
+  // editable by hand, see that file for the format. Each "# Heading" becomes
+  // a button that reveals its own guidelines-style content block,
+  // accordion-style, exactly like the old hardcoded "Simple Rhyme" did.
+  function escapeHtml(s) {
+    return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  }
+  function inlineBold(s) {
+    return s.replace(/\*\*(.+?)\*\*/g, "<b>$1</b>");
+  }
+  function slugifyPracticeTitle(title) {
+    return title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "practice";
+  }
+
+  // Numbered lines become top-level steps; an indented "- " line becomes a
+  // sub-point nested under the step above it (mirrors the old hand-written
+  // <ol><li>...<ul class="guidelines-levels">...</ul></li></ol> markup).
+  function renderPracticeBodyHtml(bodyLines) {
+    const items = [];
+    for (const line of bodyLines) {
+      if (!line.trim()) continue;
+      const top = line.match(/^\d+\.\s+(.*)$/);
+      if (top) {
+        items.push({ text: top[1].trim(), subItems: [] });
+        continue;
+      }
+      const sub = line.match(/^\s+-\s+(.*)$/);
+      if (sub && items.length) items[items.length - 1].subItems.push(sub[1].trim());
+    }
+    const li = items.map((item) => {
+      const subHtml = item.subItems.length
+        ? `<ul class="guidelines-levels">${item.subItems.map((s) => `<li>${inlineBold(escapeHtml(s))}</li>`).join("")}</ul>`
+        : "";
+      return `<li>${inlineBold(escapeHtml(item.text))}${subHtml}</li>`;
+    }).join("");
+    return `<ol>${li}</ol>`;
+  }
+
+  // Everything before the first "# Heading" (the how-this-file-works notes
+  // at the top of practices.md) is deliberately ignored here, not rendered.
+  function parsePracticesMarkdown(text) {
+    const practices = [];
+    let current = null;
+    for (const rawLine of text.split("\n")) {
+      const heading = rawLine.match(/^#\s+(.+?)\s*$/);
+      if (heading) {
+        current = { title: heading[1].trim(), bodyLines: [] };
+        practices.push(current);
+        continue;
+      }
+      if (current) current.bodyLines.push(rawLine);
+    }
+    return practices.map((p) => ({
+      id: slugifyPracticeTitle(p.title),
+      title: p.title,
+      html: renderPracticeBodyHtml(p.bodyLines),
+    }));
+  }
+
+  function renderPractices(practices) {
+    if (practices.length === 0) return;
+    practices.forEach(({ id, title, html }) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "pill practice-pill";
+      btn.dataset.practice = id;
+      btn.setAttribute("aria-expanded", "false");
+      btn.textContent = title;
+      practicesButtonRow.appendChild(btn);
+
+      const content = document.createElement("div");
+      content.className = "collapsible-body guidelines-body practice-content";
+      content.dataset.practice = id;
+      content.hidden = true;
+      content.innerHTML = html;
+      practicesPanel.appendChild(content);
+
+      btn.addEventListener("click", () => {
+        const willOpen = content.hidden;
+        content.hidden = !willOpen;
+        btn.classList.toggle("active", willOpen);
+        btn.setAttribute("aria-expanded", String(willOpen));
+      });
+    });
+    practicesPanel.hidden = false;
+  }
+
+  // Not fatal if this fails (e.g. opened straight from disk via file://,
+  // where a fetch of a local file is blocked) — the rest of the app doesn't
+  // depend on it, the Practices panel just stays hidden.
+  fetch("data/practices.md")
+    .then((res) => (res.ok ? res.text() : Promise.reject(new Error("practices.md not found"))))
+    .then((text) => renderPractices(parsePracticesMarkdown(text)))
+    .catch(() => {});
 
   // Color scheme: swaps the CSS custom properties in data/styles.css by
   // setting data-theme on <html>. The inline snippet in <head> applies the
@@ -670,6 +793,181 @@
       saveSettings();
     });
   });
+
+  // Practice timer — a fixed top-left overlay (see the CSS comment on
+  // .timer-panel), on top of everything else including "Hide UI". None of
+  // this is persisted: like Hide UI and reveal mode, you want a clean slate
+  // on a fresh visit rather than resuming mid-countdown or with a stale
+  // queue. Durations are in minutes (what the 6 buttons offer and what a
+  // built sequence is made of); the countdown itself still ticks in seconds
+  // internally so it can show MM:SS.
+  let timerVisible = false;
+  let timerMode = "simple"; // 'simple' | 'multi'
+  let timerQueuedMinutes = []; // being built in multi mode, pre-Confirm
+  let timerLoop = false;
+  let timerRunningNow = false;
+  let timerIntervalId = null;
+  let timerActiveQueue = [];
+  let timerQueueIndex = 0;
+  let timerRemainingSeconds = 0;
+
+  function updateShowTimerBtnUI() {
+    timerPanel.hidden = !timerVisible;
+    showTimerBtn.textContent = timerVisible ? "Hide timer" : "Show timer";
+  }
+  showTimerBtn.addEventListener("click", () => {
+    timerVisible = !timerVisible;
+    updateShowTimerBtnUI();
+  });
+
+  function updateTimerModeUI() {
+    timerModePills.forEach((btn) => {
+      btn.classList.toggle("active", btn.dataset.timerMode === timerMode);
+    });
+    const isMulti = timerMode === "multi";
+    timerSequenceEl.hidden = !isMulti;
+    timerMultiActions.hidden = !isMulti;
+    renderTimerSquares(timerSequenceEl, timerQueuedMinutes, -1);
+  }
+  timerModePills.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      if (timerRunningNow) return; // don't let a mode switch pull the rug out mid-countdown
+      timerMode = btn.dataset.timerMode;
+      timerQueuedMinutes = []; // switching modes starts the sequence builder over
+      updateTimerModeUI();
+    });
+  });
+
+  // Renders a row of duration squares — reused for both the multi-mode
+  // sequence builder (activeIndex -1, nothing marked done) and the running
+  // view (the in-progress item highlighted, earlier ones dimmed as done).
+  function renderTimerSquares(container, minutes, activeIndex) {
+    container.innerHTML = minutes.map((m, i) => {
+      const cls = i === activeIndex ? "active" : i < activeIndex ? "done" : "";
+      return `<div class="timer-square ${cls}">${m}m</div>`;
+    }).join("");
+  }
+
+  function formatMinSec(totalSeconds) {
+    const m = Math.floor(totalSeconds / 60);
+    const s = totalSeconds % 60;
+    return `${m}:${String(s).padStart(2, "0")}`;
+  }
+
+  // A short two-note chime via Web Audio rather than an audio file — keeps
+  // the timer fully self-contained/offline like the rest of the app (see
+  // simpleDefinitionOf's WORDNET_DEFS comment for the same reasoning).
+  function playTimerChime() {
+    try {
+      const Ctx = window.AudioContext || window.webkitAudioContext;
+      const ctx = new Ctx();
+      const now = ctx.currentTime;
+      [880, 1320].forEach((freq, i) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = "sine";
+        osc.frequency.value = freq;
+        const start = now + i * 0.12;
+        gain.gain.setValueAtTime(0, start);
+        gain.gain.linearRampToValueAtTime(0.25, start + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.3);
+        osc.connect(gain).connect(ctx.destination);
+        osc.start(start);
+        osc.stop(start + 0.35);
+      });
+      setTimeout(() => ctx.close(), 600);
+    } catch (e) {
+      // Web Audio unavailable/blocked — the visual countdown already shows completion
+    }
+  }
+
+  function stopTimerInterval() {
+    if (timerIntervalId) {
+      clearInterval(timerIntervalId);
+      timerIntervalId = null;
+    }
+  }
+
+  // Returns to the setup UI (mode pills + the 6 duration buttons, and in
+  // multi mode the sequence builder) without clearing timerQueuedMinutes, so
+  // a manual stop or a finished non-looping run can just be re-Confirmed to
+  // replay it.
+  function returnToTimerPicker() {
+    stopTimerInterval();
+    timerRunningNow = false;
+    timerRunningEl.hidden = true;
+    timerSetup.hidden = false;
+  }
+
+  function tickTimer() {
+    timerRemainingSeconds--;
+    if (timerRemainingSeconds > 0) {
+      timerCountdownEl.textContent = formatMinSec(timerRemainingSeconds);
+      return;
+    }
+    stopTimerInterval();
+    playTimerChime();
+    timerQueueIndex++;
+    if (timerQueueIndex >= timerActiveQueue.length) {
+      if (timerLoop) {
+        timerQueueIndex = 0;
+      } else {
+        returnToTimerPicker();
+        return;
+      }
+    }
+    startCurrentTimerItem();
+  }
+
+  function startCurrentTimerItem() {
+    timerRemainingSeconds = timerActiveQueue[timerQueueIndex] * 60;
+    timerCountdownEl.textContent = formatMinSec(timerRemainingSeconds);
+    // Simple mode is just one bare countdown — no sequence, so no point
+    // showing a single square for it.
+    if (timerMode === "multi") renderTimerSquares(timerRunningSequenceEl, timerActiveQueue, timerQueueIndex);
+    timerIntervalId = setInterval(tickTimer, 1000);
+  }
+
+  function startTimerQueue(queue) {
+    if (queue.length === 0) return;
+    timerActiveQueue = queue;
+    timerQueueIndex = 0;
+    timerRunningNow = true;
+    timerSetup.hidden = true;
+    timerRunningEl.hidden = false;
+    timerRunningSequenceEl.hidden = timerMode !== "multi";
+    if (timerMode !== "multi") timerRunningSequenceEl.innerHTML = ""; // clear any squares left from a prior multi-mode run
+    startCurrentTimerItem();
+  }
+
+  timerDurationBtns.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const minutes = Number(btn.dataset.minutes);
+      if (timerMode === "simple") {
+        startTimerQueue([minutes]);
+      } else {
+        timerQueuedMinutes.push(minutes);
+        renderTimerSquares(timerSequenceEl, timerQueuedMinutes, -1);
+      }
+    });
+  });
+
+  timerReturnBtn.addEventListener("click", () => {
+    timerQueuedMinutes.pop();
+    renderTimerSquares(timerSequenceEl, timerQueuedMinutes, -1);
+  });
+
+  timerLoopBtn.addEventListener("click", () => {
+    timerLoop = !timerLoop;
+    timerLoopBtn.classList.toggle("active", timerLoop);
+  });
+
+  timerConfirmBtn.addEventListener("click", () => {
+    startTimerQueue([...timerQueuedMinutes]);
+  });
+
+  // The countdown number is itself the stop control — no separate button.
+  timerCountdownEl.addEventListener("click", returnToTimerPicker);
 
   function parseCsv(text) {
     return text
@@ -769,6 +1067,8 @@
       inner = `<a class="word" data-pair-part="${part}" href="${dictionaryUrl(word)}" target="_blank" rel="noopener noreferrer">${display}</a>`;
     } else if (defStyle === "full") {
       inner = `<span class="word word-full" data-pair-part="${part}" data-word="${word}">${display}</span>`;
+    } else if (defStyle === "delete") {
+      inner = `<span class="word word-delete" data-pair-part="${part}" data-word="${word}">${display}</span>`;
     } else {
       inner = `<span class="word word-simple" data-pair-part="${part}" data-word="${word}">${display}</span>`;
     }
@@ -815,7 +1115,44 @@
     document.addEventListener("keydown", popupKeydownHandler);
   }
 
+  function langPillLabel(lang) {
+    const btn = document.querySelector(`.lang-pill[data-lang="${lang}"]`);
+    return btn ? btn.textContent : lang;
+  }
+
+  function updateDeletedStatus() {
+    const n = deletedWordSets[currentLanguage].size;
+    deletedStatus.textContent = n === 0
+      ? "No words deleted yet."
+      : `${n} word${n === 1 ? "" : "s"} deleted for ${langPillLabel(currentLanguage)}.`;
+  }
+
+  // Word-deletion mode: flags the clicked word so it never comes up again
+  // (see filterPool/sensitiveWordsInScope), then removes just that pair
+  // card from the page — deliberately NOT a generate() call, so the rest of
+  // what's currently on screen stays exactly as it was.
+  function handleWordDeletion(wordEl) {
+    const word = wordEl.dataset.word;
+    deletedWordSets[currentLanguage].add(word);
+    saveSettings();
+    updateDeletedStatus();
+    currentPairs = currentPairs.filter((p) => p.a !== word && p.b !== word);
+    const card = wordEl.closest(".pair-card");
+    if (card) card.remove();
+    if (pairsContainer.children.length === 0) {
+      pairsContainer.innerHTML = `<div class="empty-state">No rhyme pairs could be made with the current word list and settings. Try enabling more rhyme types, or add more words.</div>`;
+      countInfo.textContent = "";
+    } else {
+      updateCountInfo(pairsContainer.children.length, selectedCount);
+    }
+  }
+
   pairsContainer.addEventListener("click", (e) => {
+    const deleteWord = e.target.closest(".word-delete");
+    if (deleteWord) {
+      handleWordDeletion(deleteWord);
+      return;
+    }
     const simpleWord = e.target.closest(".word-simple");
     if (simpleWord) {
       toggleSimpleDefinition(simpleWord);
@@ -847,6 +1184,34 @@
     pairsContainer.querySelectorAll(".word-simple").forEach(revealSimpleDefinition);
   });
 
+  downloadDeletedBtn.addEventListener("click", () => {
+    const words = [...deletedWordSets[currentLanguage]];
+    if (words.length === 0) return;
+    const blob = new Blob([words.join(",\n") + "\n"], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `deleted-words-${currentLanguage}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  });
+
+  clearDeletedBtn.addEventListener("click", () => {
+    deletedWordSets[currentLanguage].clear();
+    saveSettings();
+    updateDeletedStatus();
+  });
+
+  function updateCountInfo(shown, requested) {
+    if (shown < requested) {
+      countInfo.textContent = `Showing ${shown} of the ${requested} requested — that's all the word list supports with these settings.`;
+    } else {
+      countInfo.textContent = `${shown} pairs`;
+    }
+  }
+
   function renderPairs(pairs, requested) {
     pairsContainer.innerHTML = "";
     if (pairs.length === 0) {
@@ -870,11 +1235,7 @@
       `;
       pairsContainer.appendChild(card);
     });
-    if (pairs.length < requested) {
-      countInfo.textContent = `Showing ${pairs.length} of the ${requested} requested — that's all the word list supports with these settings.`;
-    } else {
-      countInfo.textContent = `${pairs.length} pairs`;
-    }
+    updateCountInfo(pairs.length, requested);
   }
 
   function generate(scroll) {
@@ -991,6 +1352,9 @@
   advancedDetails.open = advancedOpen;
   setDefStyleUI();
   updateRevealModeUI();
+  updateDeletedStatus();
+  updateShowTimerBtnUI();
+  updateTimerModeUI();
   playlistToggle.checked = playlistVisible;
   playlistSourceSelect.value = playlistSource;
   updatePlaylistSource();
