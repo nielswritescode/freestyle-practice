@@ -1227,7 +1227,7 @@
 
   const DICTIONARY_URL_BUILDERS = {
     en: (q) => `https://www.oxfordlearnersdictionaries.com/definition/english/${q}?q=${q}`,
-    nl: (q) => `https://www.vandale.nl/gratis-woordenboek/nederlands/betekenis/${q}`,
+    nl: (q) => `https://www.woorden.org/woord/${q}`,
     de: (q) => `https://www.duden.de/rechtschreibung/${q}`,
     fr: (q) => `https://www.larousse.fr/dictionnaires/francais/${q}`,
     es: (q) => `https://dle.rae.es/${q}`,
