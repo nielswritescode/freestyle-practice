@@ -934,6 +934,7 @@
       applyTimerDurations();
       saveSettings();
     });
+    input.addEventListener("focus", () => input.select());
   });
 
   function formatMinSec(totalSeconds) {
