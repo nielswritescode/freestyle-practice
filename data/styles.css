@@ -406,12 +406,16 @@ body.timer-open .wrap{padding-bottom:240px;}
 }
 .timer-sequence[hidden]{display:none;}
 .timer-multi-actions[hidden]{display:none;}
+/* Its own color (--near, otherwise just the "near rhyme" tag color) rather
+   than the same gold as everything else — the sequence squares read as
+   their own thing at a glance, distinct from Confirm/Loop right next to
+   them. */
 .timer-square{
   width:40px;
   height:40px;
   border-radius:10px;
   background:var(--panel-2);
-  border:1px solid var(--line);
+  border:1px solid var(--near);
   display:flex;
   align-items:center;
   justify-content:center;
@@ -422,9 +426,9 @@ body.timer-open .wrap{padding-bottom:240px;}
   flex-shrink:0;
 }
 .timer-square.active{
-  background:var(--accent);
+  background:var(--near);
   color:var(--accent-ink);
-  border-color:var(--accent);
+  border-color:var(--near);
 }
 .timer-square.done{opacity:.4;}
 #timerLoopBtn.active{background:var(--accent); color:var(--accent-ink); border-color:var(--accent);}

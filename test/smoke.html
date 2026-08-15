@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>RhymeFlow smoke tests</title>
+<style>
+  body{font-family:monospace;background:#111;color:#eee;padding:16px;}
+  #stage{position:fixed;top:-9999px;left:-9999px;}
+  #stage iframe{width:420px;height:1400px;border:0;}
+  .pass{color:#7ec488;}
+  .fail{color:#e07a7a;}
+  #output{white-space:pre-wrap;}
+  #summary{font-weight:bold;font-size:16px;margin-bottom:12px;}
+</style>
+</head>
+<body>
+<div id="summary">Running…</div>
+<div id="output"></div>
+<div id="stage"></div>
+
+<script>
+// ---------------------------------------------------------------------
+// Reusable smoke-test harness for rg-latest.html.
+//
+// Run it with test/run.sh (needs the app served over http/https — a fresh
+// iframe is loaded per test, and Practices' fetch() of data/practices.md
+// requires that, same as real deployment). Each test gets its own freshly
+// loaded iframe so state from one test can't leak into the next — this is
+// what would have caught the sensitive-word-mode pool bug and the
+// stale-timerMode class of issue immediately instead of needing a manual
+// repro.
+//
+// Add a test with test("name", async (doc, win) => { ... assert(...) }).
+// Throw (via assert or otherwise) to fail; anything left in `errors`
+// (populated from the iframe's window "error" event) fails the test too,
+// even if the assertions all passed — this is what catches silent
+// uncaught-exception regressions like the leftover timerStopBtn reference
+// that broke the entire app's init.
+// ---------------------------------------------------------------------
+
+const tests = [];
+function test(name, fn) { tests.push({ name, fn }); }
+
+function assert(cond, msg) {
+  if (!cond) throw new Error(msg || "assertion failed");
+}
+function assertEqual(actual, expected, msg) {
+  if (actual !== expected) {
+    throw new Error((msg ? msg + " — " : "") + `expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`);
+  }
+}
+function displayOf(el) { return getComputedStyle(el).display; }
+function sleep(ms) { return new Promise((r) => setTimeout(r, ms)); }
+
+function loadFreshApp() {
+  return new Promise((resolve, reject) => {
+    const iframe = document.createElement("iframe");
+    const errors = [];
+    iframe.addEventListener("load", () => {
+      const win = iframe.contentWindow;
+      win.addEventListener("error", (e) => errors.push(e.message + " @ " + e.filename + ":" + e.lineno));
+      // let the app's init (generate(), the practices.md fetch, etc.) settle
+      setTimeout(() => resolve({ iframe, doc: iframe.contentDocument, win, errors }), 500);
+    });
+    iframe.addEventListener("error", () => reject(new Error("iframe failed to load")));
+    iframe.src = "../rg-latest.html";
+    document.getElementById("stage").appendChild(iframe);
+  });
+}
+
+function fire(el, type, x, y) {
+  el.dispatchEvent(new PointerEvent(type, {
+    bubbles: true, cancelable: true, pointerId: 1, isPrimary: true,
+    button: 0, buttons: type === "pointerup" ? 0 : 1, clientX: x, clientY: y,
+  }));
+}
+
+// ---- baseline ----
+
+test("app loads and generates the requested pairs with no console errors", async (doc) => {
+  assertEqual(doc.querySelectorAll(".pair-card").length, 20);
+});
+
+test("practices load with at least one button", async (doc) => {
+  assert(!doc.getElementById("practicesPanel").hidden, "practicesPanel should not be hidden");
+  assert(doc.querySelectorAll(".practice-pill").length >= 1, "expected at least one practice button");
+});
+
+test("clicking a practice button reveals its content", async (doc) => {
+  const btn = doc.querySelector(".practice-pill");
+  const content = doc.querySelector(".practice-content");
+  assert(content.hidden, "practice content should start hidden");
+  btn.click();
+  assert(!content.hidden, "practice content should be visible after click");
+});
+
+// ---- broad interaction sweep: catches uncaught-exception regressions ----
+
+test("broad click sweep across every major control throws no errors", async (doc) => {
+  doc.getElementById("guidelinesDetails").open = true;
+  doc.getElementById("advancedDetails").open = true;
+  const selectors = [
+    ".lang-pill", ".count-pill", ".sensitive-mode-pill", ".reveal-mode-pill",
+    ".def-style-pill", ".practice-pill", ".timer-mode-pill", ".theme-swatch",
+    ".timer-duration-btn", "#timerLoopBtn", "#timerReturnBtn", "#timerConfirmBtn",
+    "#timerSoundPreviewBtn", ".timer-sound-pill", "#showAllDefsBtn", "#csvResetBtn",
+    "#csvExampleBtn", "#refreshBtnTop", "#refreshBtnBottom", "#playlistToggle",
+    "#autoRefreshToggle", "#downloadDeletedBtn", "#clearDeletedBtn", "#showTimerBtn",
+    "#hideUiBtn",
+  ];
+  let clicked = 0;
+  for (const sel of selectors) {
+    doc.querySelectorAll(sel).forEach((el) => { el.click(); clicked++; });
+  }
+  assert(clicked > 30, `expected to click 30+ elements, only found ${clicked}`);
+});
+
+// ---- the [hidden]-vs-CSS-display bug class (bit twice this session) ----
+
+test("every JS-toggled hidden panel actually collapses to display:none", async (doc) => {
+  doc.getElementById("advancedDetails").open = true;
+
+  // Reveal mode "words": word B's slot + tie should collapse (visibility,
+  // not display, for this one — see .pairs.single-words in styles.css)
+  doc.querySelector('.reveal-mode-pill[data-reveal-mode="words"]').click();
+  const slotB = doc.querySelector('.word-slot[data-pair-part="b"]');
+  assertEqual(getComputedStyle(slotB).visibility, "hidden", "word B should be visibility:hidden in Single words mode");
+  doc.querySelector('.reveal-mode-pill[data-reveal-mode="pairs"]').click();
+
+  // Definitions "simple": showAllDefsRow appears; any other style should hide it
+  doc.querySelector('.def-style-pill[data-def-style="simple"]').click();
+  assertEqual(displayOf(doc.getElementById("showAllDefsRow")), "flex", "showAllDefsRow should show in Simple Definition mode");
+  doc.querySelector('.def-style-pill[data-def-style="links"]').click();
+  assertEqual(displayOf(doc.getElementById("showAllDefsRow")), "none", "showAllDefsRow should hide outside Simple Definition mode");
+
+  // Timer: Simple mode must hide the multi-only controls and squares —
+  // this exact check (computed display, not just the `hidden` property)
+  // is what would have caught the .timer-multi-actions bug immediately.
+  doc.getElementById("showTimerBtn").click();
+  assertEqual(displayOf(doc.getElementById("timerMultiActions")), "none", "timerMultiActions should be display:none in Simple mode");
+  assertEqual(displayOf(doc.getElementById("timerSequence")), "none", "timerSequence should be display:none in Simple mode");
+  doc.querySelector('.timer-mode-pill[data-timer-mode="multi"]').click();
+  assertEqual(displayOf(doc.getElementById("timerMultiActions")), "flex", "timerMultiActions should show in Multi mode");
+  assertEqual(displayOf(doc.getElementById("timerSequence")), "flex", "timerSequence should show in Multi mode");
+});
+
+// ---- reveal modes mask content correctly ----
+
+test("reveal mode letter/family/syllable never leak the full word", async (doc) => {
+  const wordOf = () => doc.querySelector('.word-slot[data-pair-part="b"] .word').textContent;
+
+  doc.querySelector('.reveal-mode-pill[data-reveal-mode="letter"]').click();
+  assertEqual(wordOf().length, 1, "letter mode should show exactly one character");
+
+  doc.querySelector('.reveal-mode-pill[data-reveal-mode="syllable"]').click();
+  assertEqual(wordOf(), "•", "syllable mode should show exactly one bullet, no letters");
+
+  doc.querySelector('.reveal-mode-pill[data-reveal-mode="family"]').click();
+  assert(!wordOf().includes("•"), "family mode should show bare letters, no bullets");
+});
+
+// ---- sensitive-words "only" mode: at least one side per pair ----
+
+test('sensitive mode "only" produces pairs with exactly one flagged word, always in slot a', async (doc, win) => {
+  doc.getElementById("advancedDetails").open = true;
+  doc.querySelector('.sensitive-mode-pill[data-sensitive-mode="only"]').click();
+  const cards = [...doc.querySelectorAll(".pair-card")];
+  assert(cards.length > 0, "expected at least one pair in only mode");
+  const blocked = win.eval("Array.from(new Set(Object.values(SENSITIVE_WORDS).flat()))");
+  for (const card of cards) {
+    const words = [...card.querySelectorAll(".word")].map((el) => el.textContent);
+    const aFlagged = blocked.includes(words[0]);
+    const bFlagged = blocked.includes(words[1]);
+    assert(aFlagged !== bFlagged, `expected exactly one flagged word in ${words.join(" / ")}`);
+    assert(aFlagged, `expected the sensitive word to be in slot a, got ${words.join(" / ")}`);
+  }
+});
+
+// ---- word deletion: removes just the one card, no full refresh ----
+
+test("word deletion removes only the clicked pair, not a fresh batch", async (doc) => {
+  const before = doc.querySelectorAll(".pair-card").length;
+  const firstWords = [...doc.querySelectorAll(".pair-card")].slice(1).map((c) => c.querySelector(".word").textContent);
+  doc.querySelector('.def-style-pill[data-def-style="delete"]').click();
+  doc.querySelector(".pair-card .word-delete").click();
+  assertEqual(doc.querySelectorAll(".pair-card").length, before - 1, "exactly one card should be removed");
+  const afterWords = [...doc.querySelectorAll(".pair-card")].map((c) => c.querySelector(".word").textContent);
+  assertEqual(JSON.stringify(afterWords), JSON.stringify(firstWords), "the remaining cards should be untouched, not a new random batch");
+});
+
+// ---- timer end-to-end ----
+
+test("timer: simple duration starts a countdown that can be stopped", async (doc) => {
+  doc.getElementById("showTimerBtn").click();
+  doc.querySelector('.timer-duration-btn[data-minutes="5"]').click();
+  assertEqual(displayOf(doc.getElementById("timerRunning")), "flex", "running view should show");
+  assertEqual(displayOf(doc.getElementById("timerSetup")), "none", "setup view should hide while running");
+  assertEqual(doc.getElementById("timerCountdown").textContent, "5:00");
+  doc.getElementById("timerCountdown").click();
+  assertEqual(displayOf(doc.getElementById("timerSetup")), "flex", "setup view should return after stopping");
+});
+
+test("timer: multi mode builds a sequence, Return undoes, Loop toggles", async (doc) => {
+  doc.getElementById("advancedDetails").open = true;
+  doc.getElementById("showTimerBtn").click();
+  doc.querySelector('.timer-mode-pill[data-timer-mode="multi"]').click();
+  doc.querySelector('.timer-duration-btn[data-minutes="10"]').click();
+  doc.querySelector('.timer-duration-btn[data-minutes="5"]').click();
+  assertEqual(doc.querySelectorAll("#timerSequence .timer-square").length, 2);
+  doc.getElementById("timerReturnBtn").click();
+  assertEqual(doc.querySelectorAll("#timerSequence .timer-square").length, 1);
+  doc.getElementById("timerLoopBtn").click();
+  assert(doc.getElementById("timerLoopBtn").classList.contains("active"), "loop button should be active after click");
+});
+
+// ---- settings persistence ----
+
+test("settings survive a reload", async (doc, win, ctx) => {
+  doc.querySelector('.theme-swatch[data-theme="neon"]').click();
+  doc.querySelector('.sensitive-mode-pill[data-sensitive-mode="off"]').click();
+  await sleep(50);
+  const fresh = await loadFreshApp();
+  try {
+    assertEqual(fresh.doc.documentElement.getAttribute("data-theme"), "neon", "theme should persist");
+    fresh.doc.getElementById("advancedDetails").open = true;
+    assert(fresh.doc.querySelector('.sensitive-mode-pill[data-sensitive-mode="off"]').classList.contains("active"), "sensitive mode should persist");
+  } finally {
+    fresh.iframe.remove();
+  }
+});
+
+// ---- difficulty/syllable sliders respond to drag ----
+
+test("syllable range slider responds to a drag", async (doc) => {
+  doc.getElementById("advancedDetails").open = true;
+  const track = doc.querySelector(".syl-slider .diff-slider-track");
+  const rect = track.getBoundingClientRect();
+  const x = rect.left + rect.width * 0.4;
+  const y = rect.top + rect.height / 2;
+  fire(track, "pointerdown", x, y);
+  fire(track, "pointerup", x, y);
+  assert(doc.getElementById("sylRangeValue").textContent !== "Any", "dragging the slider should change the displayed range");
+});
+
+// ---- runner ----
+
+async function runAll() {
+  const results = [];
+  for (const { name, fn } of tests) {
+    let ctx;
+    try {
+      ctx = await loadFreshApp();
+      await fn(ctx.doc, ctx.win, ctx);
+      if (ctx.errors.length) throw new Error("uncaught error(s) in app: " + ctx.errors.join(" | "));
+      results.push({ name, pass: true });
+    } catch (e) {
+      results.push({ name, pass: false, error: e.message });
+    } finally {
+      if (ctx) ctx.iframe.remove();
+    }
+  }
+  return results;
+}
+
+runAll().then((results) => {
+  const passCount = results.filter((r) => r.pass).length;
+  const failCount = results.length - passCount;
+  document.getElementById("summary").textContent = `${passCount}/${results.length} passed` + (failCount ? `, ${failCount} FAILED` : "");
+  document.getElementById("summary").className = failCount ? "fail" : "pass";
+  document.getElementById("output").innerHTML = results.map((r) =>
+    r.pass
+      ? `<div class="pass">✓ ${r.name}</div>`
+      : `<div class="fail">✗ ${r.name}\n    ${r.error}</div>`
+  ).join("\n");
+  // machine-readable summary for test/run.sh to grep
+  const marker = document.createElement("div");
+  marker.id = "smoke-test-result";
+  marker.setAttribute("data-json", JSON.stringify({ passCount, failCount, total: results.length, results }));
+  document.body.appendChild(marker);
+
+  // test/run.sh can't rely on --dump-dom's timing (it doesn't wait around
+  // for a page that keeps loading iframes for several seconds after its own
+  // load event) — polling the DevTools /json endpoint's live "title" field
+  // instead needs no such wait. Base64 keeps the JSON's quotes/newlines from
+  // upsetting whatever's reading document.title.
+  document.title = "SMOKE_DONE:" + btoa(unescape(encodeURIComponent(
+    JSON.stringify({ passCount, failCount, total: results.length, results })
+  )));
+});
+</script>
+</body>
+</html>

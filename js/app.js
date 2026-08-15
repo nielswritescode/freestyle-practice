@@ -780,13 +780,32 @@
     practicesPanel.hidden = false;
   }
 
-  // Not fatal if this fails (e.g. opened straight from disk via file://,
-  // where a fetch of a local file is blocked) — the rest of the app doesn't
-  // depend on it, the Practices panel just stays hidden.
+  // A snapshot of data/practices.md, used only if the fetch below fails —
+  // chiefly when the page is opened straight from disk via file:// instead
+  // of through a server, where a fetch of a local file is blocked by CORS
+  // (every other data file in this app sidesteps that by loading via
+  // <script src>, which isn't subject to the same restriction; Practices is
+  // the one exception, specifically so the file stays plain, fetchable
+  // markdown rather than JS, for editing — see data/practices.md). This
+  // fallback won't reflect edits made to that file after being updated
+  // here, but it's better than the whole panel silently vanishing.
+  const DEFAULT_PRACTICES_MD = `
+# Simple Rhyme
+
+1. Say the word shown on count 4. On count 8, come up with your own rhyme.
+   - **Level 2:** Think of 2 words and choose the second one.
+2. If you can't think of any, say a nonsense rhyme and go back to it after the practice has ended.
+
+# Single Word
+
+1. Practice level 1, 2 or 3 with single words.
+   - **Level 2:** Invert. Say your own rhyme first.
+2. Investigate where you get stuck and focus on one specific area at a time.
+`;
   fetch("data/practices.md")
     .then((res) => (res.ok ? res.text() : Promise.reject(new Error("practices.md not found"))))
     .then((text) => renderPractices(parsePracticesMarkdown(text)))
-    .catch(() => {});
+    .catch(() => renderPractices(parsePracticesMarkdown(DEFAULT_PRACTICES_MD)));
 
   // Color scheme: swaps the CSS custom properties in data/styles.css by
   // setting data-theme on <html>. The inline snippet in <head> applies the
