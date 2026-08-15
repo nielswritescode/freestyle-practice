@@ -1092,13 +1092,18 @@
     timerIntervalId = setInterval(tickTimer, 1000);
   }
 
+  // 7 alternate looks (see the matching flash-* keyframes in styles.css),
+  // one picked at random per flash so the wordart doesn't play the exact
+  // same animation every time a timer starts.
+  const PRACTICE_FLASH_STYLES = ["glow", "slide", "flicker", "wipe", "glitch", "zoom", "flip"];
   // Retriggerable via the classList remove/reflow/add dance since the CSS
   // animation's "forwards" fill would otherwise leave it stuck invisible
   // (not "not yet started") on a second call.
   function flashPracticeWordart() {
-    practiceFlashEl.classList.remove("show");
+    practiceFlashEl.classList.remove("show", ...PRACTICE_FLASH_STYLES.map((s) => `flash-${s}`));
     void practiceFlashEl.offsetWidth;
-    practiceFlashEl.classList.add("show");
+    const style = PRACTICE_FLASH_STYLES[Math.floor(Math.random() * PRACTICE_FLASH_STYLES.length)];
+    practiceFlashEl.classList.add("show", `flash-${style}`);
   }
 
   function startTimerQueue(queue) {
