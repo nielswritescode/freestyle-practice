@@ -267,6 +267,7 @@
   const themeSwatches = document.querySelectorAll(".theme-swatch");
   const showTimerBtn = document.getElementById("showTimerBtn");
   const timerPanel = document.getElementById("timerPanel");
+  const timerOptionsGroup = document.getElementById("timerOptionsGroup");
   const timerSetup = document.getElementById("timerSetup");
   const timerModePills = document.querySelectorAll(".timer-mode-pill");
   const timerSoundPills = document.querySelectorAll(".timer-sound-pill");
@@ -872,6 +873,7 @@
 
   function updateShowTimerBtnUI() {
     timerPanel.hidden = !timerVisible;
+    timerOptionsGroup.hidden = !timerVisible;
     showTimerBtn.textContent = timerVisible ? "Hide timer" : "Show timer";
     // On narrow screens the timer becomes a bottom sheet (see the mobile
     // media query in styles.css) — this reserves room below the pairs so it
