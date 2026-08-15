@@ -235,6 +235,29 @@ test("timer durations are editable, apply live, and persist", async (doc) => {
   }
 });
 
+test("timer duration unit toggles between minutes and seconds, relabels everything, and persists", async (doc) => {
+  doc.getElementById("advancedDetails").open = true;
+  assert(doc.querySelector('.timer-duration-unit-pill[data-timer-duration-unit="minutes"]').classList.contains("active"), "minutes should be the default unit");
+  assertEqual(doc.querySelector(".timer-duration-btn").textContent, "5m", "duration buttons should default to minutes");
+
+  doc.querySelector('.timer-duration-unit-pill[data-timer-duration-unit="seconds"]').click();
+  assert(doc.querySelector('.timer-duration-unit-pill[data-timer-duration-unit="seconds"]').classList.contains("active"), "seconds pill should become active");
+  assert(!doc.querySelector('.timer-duration-unit-pill[data-timer-duration-unit="minutes"]').classList.contains("active"), "minutes pill should no longer be active");
+  assertEqual(doc.querySelector(".timer-duration-btn").textContent, "5s", "duration buttons should relabel to seconds");
+
+  doc.getElementById("showTimerBtn").click();
+  doc.querySelector(".timer-duration-btn").click();
+  assertEqual(doc.getElementById("timerCountdown").textContent, "0:05", "starting a duration in seconds mode should count down in seconds, not minutes");
+
+  const fresh = await loadFreshApp();
+  try {
+    fresh.doc.getElementById("advancedDetails").open = true;
+    assert(fresh.doc.querySelector('.timer-duration-unit-pill[data-timer-duration-unit="seconds"]').classList.contains("active"), "seconds unit should persist across a reload");
+  } finally {
+    fresh.iframe.remove();
+  }
+});
+
 test("starting a timer flashes the PRACTICE wordart", async (doc) => {
   const flash = doc.getElementById("practiceFlash");
   assert(!flash.classList.contains("show"), "flash should not be showing before a timer starts");
