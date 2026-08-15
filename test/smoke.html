@@ -284,6 +284,29 @@ test("settings survive a reload", async (doc, win, ctx) => {
   }
 });
 
+test("reset default settings requires two clicks and restores defaults", async (doc, win, ctx) => {
+  doc.getElementById("advancedDetails").open = true;
+  doc.querySelector('.theme-swatch[data-theme="neon"]').click();
+  doc.querySelector('.sensitive-mode-pill[data-sensitive-mode="off"]').click();
+  await sleep(50);
+
+  const btn = doc.getElementById("resetSettingsBtn");
+  assertEqual(btn.textContent, "Reset default settings");
+  btn.click();
+  assertEqual(btn.textContent, "Click again to confirm", "first click should arm the reset, not fire it");
+  assertEqual(doc.documentElement.getAttribute("data-theme"), "neon", "settings should be untouched after only one click");
+
+  await new Promise((resolve) => {
+    ctx.iframe.addEventListener("load", resolve, { once: true });
+    btn.click();
+  });
+  await sleep(500); // let the reloaded app's own init (generate(), practices fetch, etc.) settle
+  const freshDoc = ctx.iframe.contentDocument;
+  assertEqual(freshDoc.documentElement.getAttribute("data-theme"), "dark", "theme should be back to its default after reset");
+  freshDoc.getElementById("advancedDetails").open = true;
+  assert(freshDoc.querySelector('.sensitive-mode-pill[data-sensitive-mode="on"]').classList.contains("active"), "sensitive mode should be back to its default (Filter out) after reset");
+});
+
 // ---- difficulty/syllable sliders respond to drag ----
 
 test("syllable range slider responds to a drag", async (doc) => {

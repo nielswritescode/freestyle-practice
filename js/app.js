@@ -241,6 +241,8 @@
   const downloadDeletedBtn = document.getElementById("downloadDeletedBtn");
   const clearDeletedBtn = document.getElementById("clearDeletedBtn");
   const deletedStatus = document.getElementById("deletedStatus");
+  const resetSettingsBtn = document.getElementById("resetSettingsBtn");
+  const resetSettingsStatus = document.getElementById("resetSettingsStatus");
   const hideUiBtn = document.getElementById("hideUiBtn");
   const settingsCol = document.querySelector(".settings-col");
   const pairsContainer = document.getElementById("pairsContainer");
@@ -1395,6 +1397,32 @@
     deletedWordSets[currentLanguage].clear();
     saveSettings();
     updateDeletedStatus();
+  });
+
+  // Wipes every persisted preference (theme, timer settings, deleted words,
+  // syllable range, etc.) back to the app's built-in defaults and reloads,
+  // which is simpler and less error-prone than resetting each in-memory
+  // variable and its UI by hand. Armed by one click, fired by a second
+  // within 4s, so a single misclick can't nuke all settings at once — this
+  // app avoids native confirm() dialogs elsewhere, so the button itself
+  // carries the confirmation instead.
+  let resetSettingsArmed = false;
+  let resetSettingsArmTimeout = null;
+  resetSettingsBtn.addEventListener("click", () => {
+    if (!resetSettingsArmed) {
+      resetSettingsArmed = true;
+      resetSettingsBtn.textContent = "Click again to confirm";
+      resetSettingsStatus.textContent = "This will reset every setting (theme, timer, deleted words, and more) to its default.";
+      resetSettingsArmTimeout = setTimeout(() => {
+        resetSettingsArmed = false;
+        resetSettingsBtn.textContent = "Reset default settings";
+        resetSettingsStatus.textContent = "";
+      }, 4000);
+      return;
+    }
+    clearTimeout(resetSettingsArmTimeout);
+    localStorage.removeItem(SETTINGS_KEY);
+    location.reload();
   });
 
   function updateCountInfo(shown, requested) {
