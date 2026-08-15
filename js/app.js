@@ -96,6 +96,9 @@
   const TIMER_SOUNDS = ["chime", "bell", "beep"];
   let timerSound = "chime";
   let timerVolume = 0.7; // 0..1, unlike the rest of the timer state this IS persisted — it's a preference, not session state
+  let timerMode = "simple"; // 'simple' | 'multi' — also persisted, unlike the live countdown itself (see the timer state block below)
+  let timerLoop = false;
+  let timerDurationMinutes = [5, 10, 15, 20, 25, 30]; // editable via the Advanced-panel inputs, also persisted
 
   // ---- persisted settings ----
   // Everything here is a user preference, not session data (a CSV upload
@@ -156,6 +159,15 @@
     if (typeof stored.timerVolume === "number" && stored.timerVolume >= 0 && stored.timerVolume <= 1) {
       timerVolume = stored.timerVolume;
     }
+    if (
+      Array.isArray(stored.timerDurationMinutes) &&
+      stored.timerDurationMinutes.length === 6 &&
+      stored.timerDurationMinutes.every((m) => typeof m === "number" && m >= 1 && m <= 180)
+    ) {
+      timerDurationMinutes = stored.timerDurationMinutes;
+    }
+    if (stored.timerMode === "simple" || stored.timerMode === "multi") timerMode = stored.timerMode;
+    if (typeof stored.timerLoop === "boolean") timerLoop = stored.timerLoop;
   }
 
   function saveSettings() {
@@ -178,6 +190,9 @@
         theme: currentTheme,
         timerSound,
         timerVolume,
+        timerDurationMinutes,
+        timerMode,
+        timerLoop,
         deletedWordsByLang: Object.fromEntries(
           Object.entries(deletedWordSets).map(([lang, set]) => [lang, [...set]])
         ),
@@ -259,6 +274,8 @@
   const timerVolumeSlider = document.getElementById("timerVolumeSlider");
   const timerVolumeValue = document.getElementById("timerVolumeValue");
   const timerDurationBtns = document.querySelectorAll(".timer-duration-btn");
+  const timerDurationInputs = document.querySelectorAll(".timer-duration-input");
+  const practiceFlashEl = document.getElementById("practiceFlash");
   const timerSequenceEl = document.getElementById("timerSequence");
   const timerMultiActions = document.getElementById("timerMultiActions");
   const timerReturnBtn = document.getElementById("timerReturnBtn");
@@ -801,6 +818,15 @@
 1. Practice level 1, 2 or 3 with single words.
    - **Level 2:** Invert. Say your own rhyme first.
 2. Investigate where you get stuck and focus on one specific area at a time.
+
+# General Practice Tips
+
+1. Actively make a choice on the level of privacy. Window open? Closed? At home or in the park? Would I like to rent a studio?
+   - Others being able to hear us while we practice significantly affects our learning process. We can engage with this part of the process, but it's better when it's done as a conscious choice. Otherwise subconscious anxiety might be negatively influencing your practice and might even cause you to stop practicing entirely!
+2. Are you judging yourself? Do you allow yourself to feel and accept these judgements? Once accepted, they become easier to deal with.
+   - I found myself judging myself for using English words while freestyling in Dutch. I found the judgement, took a minute to feel it. And then decided I actually didn't mind the occasional English word showing up in my practice.
+3. If you find yourself doing other things while practicing, see if you can still practice without doing those things.
+   - Writing them on a to-do list might help.
 `;
   fetch("data/practices.md")
     .then((res) => (res.ok ? res.text() : Promise.reject(new Error("practices.md not found"))))
@@ -828,16 +854,16 @@
   });
 
   // Practice timer — a fixed top-left overlay (see the CSS comment on
-  // .timer-panel), on top of everything else including "Hide UI". None of
-  // this is persisted: like Hide UI and reveal mode, you want a clean slate
-  // on a fresh visit rather than resuming mid-countdown or with a stale
-  // queue. Durations are in minutes (what the 6 buttons offer and what a
-  // built sequence is made of); the countdown itself still ticks in seconds
-  // internally so it can show MM:SS.
+  // .timer-panel), on top of everything else including "Hide UI". timerMode,
+  // timerLoop and timerDurationMinutes are declared up near timerSound/
+  // timerVolume and persisted the same way — they're preferences. The rest
+  // here is deliberately NOT persisted: like Hide UI and reveal mode, you
+  // want a clean slate on a fresh visit rather than resuming mid-countdown
+  // or with a stale queue. Durations are in minutes (what the 6 buttons
+  // offer and what a built sequence is made of); the countdown itself still
+  // ticks in seconds internally so it can show MM:SS.
   let timerVisible = false;
-  let timerMode = "simple"; // 'simple' | 'multi'
   let timerQueuedMinutes = []; // being built in multi mode, pre-Confirm
-  let timerLoop = false;
   let timerRunningNow = false;
   let timerIntervalId = null;
   let timerActiveQueue = [];
@@ -873,6 +899,7 @@
       timerMode = btn.dataset.timerMode;
       timerQueuedMinutes = []; // switching modes starts the sequence builder over
       updateTimerModeUI();
+      saveSettings();
     });
   });
 
@@ -885,6 +912,29 @@
       return `<div class="timer-square ${cls}">${m}m</div>`;
     }).join("");
   }
+
+  // Keeps the 6 duration buttons' labels/data-minutes and the matching
+  // Advanced-panel number inputs in sync with timerDurationMinutes, whether
+  // it just changed via an input or was restored from localStorage.
+  function applyTimerDurations() {
+    timerDurationBtns.forEach((btn, i) => {
+      const m = timerDurationMinutes[i];
+      btn.dataset.minutes = m;
+      btn.textContent = `${m}m`;
+    });
+    timerDurationInputs.forEach((input, i) => {
+      input.value = timerDurationMinutes[i];
+    });
+  }
+  timerDurationInputs.forEach((input, i) => {
+    input.addEventListener("change", () => {
+      const parsed = parseInt(input.value, 10);
+      const clamped = Number.isFinite(parsed) ? Math.min(180, Math.max(1, parsed)) : timerDurationMinutes[i];
+      timerDurationMinutes[i] = clamped;
+      applyTimerDurations();
+      saveSettings();
+    });
+  });
 
   function formatMinSec(totalSeconds) {
     const m = Math.floor(totalSeconds / 60);
@@ -1041,8 +1091,18 @@
     timerIntervalId = setInterval(tickTimer, 1000);
   }
 
+  // Retriggerable via the classList remove/reflow/add dance since the CSS
+  // animation's "forwards" fill would otherwise leave it stuck invisible
+  // (not "not yet started") on a second call.
+  function flashPracticeWordart() {
+    practiceFlashEl.classList.remove("show");
+    void practiceFlashEl.offsetWidth;
+    practiceFlashEl.classList.add("show");
+  }
+
   function startTimerQueue(queue) {
     if (queue.length === 0) return;
+    flashPracticeWordart();
     timerActiveQueue = queue;
     timerQueueIndex = 0;
     timerRunningNow = true;
@@ -1074,6 +1134,7 @@
   timerLoopBtn.addEventListener("click", () => {
     timerLoop = !timerLoop;
     timerLoopBtn.classList.toggle("active", timerLoop);
+    saveSettings();
   });
 
   timerConfirmBtn.addEventListener("click", () => {
@@ -1163,9 +1224,18 @@
     URL.revokeObjectURL(url);
   });
 
+  const DICTIONARY_URL_BUILDERS = {
+    en: (q) => `https://www.oxfordlearnersdictionaries.com/definition/english/${q}?q=${q}`,
+    nl: (q) => `https://www.vandale.nl/gratis-woordenboek/nederlands/betekenis/${q}`,
+    de: (q) => `https://www.duden.de/rechtschreibung/${q}`,
+    fr: (q) => `https://www.larousse.fr/dictionnaires/francais/${q}`,
+    es: (q) => `https://dle.rae.es/${q}`,
+    it: (q) => `https://www.treccani.it/vocabolario/${q}`,
+  };
   function dictionaryUrl(word) {
     const q = encodeURIComponent(word.toLowerCase());
-    return `https://www.oxfordlearnersdictionaries.com/definition/english/${q}?q=${q}`;
+    const build = DICTIONARY_URL_BUILDERS[currentLanguage] || DICTIONARY_URL_BUILDERS.en;
+    return build(q);
   }
 
   // WORDNET_DEFS (data/wordnet-data.js) is a synchronous, offline lookup —
@@ -1421,6 +1491,27 @@
     saveSettings();
   });
 
+  // Spotify's embed is cross-origin, so we can't reach into it — but when
+  // its internal UI shifts focus to highlight a newly-playing track,
+  // scrollIntoView() on a focused element inside a nested browsing context
+  // is spec'd to propagate up through the frame's ancestors, which yanks
+  // our whole page's scroll position to the player. We can't stop that
+  // happening inside the iframe, so instead we snapshot our own scroll
+  // position continuously and snap back to it if focus moves into the
+  // Spotify iframe — a deliberate click into the player leaves the user
+  // already scrolled there, so this only ever cancels the unwanted jump.
+  let lastKnownScrollY = window.scrollY;
+  window.addEventListener("scroll", () => {
+    if (document.activeElement !== spotifyEmbed) lastKnownScrollY = window.scrollY;
+  }, { passive: true });
+  window.addEventListener("blur", () => {
+    requestAnimationFrame(() => {
+      if (document.activeElement === spotifyEmbed) {
+        window.scrollTo({ top: lastKnownScrollY, behavior: "instant" });
+      }
+    });
+  });
+
   guidelinesDetails.addEventListener("toggle", saveSettings);
   advancedDetails.addEventListener("toggle", saveSettings);
 
@@ -1470,6 +1561,8 @@
   updateDeletedStatus();
   updateShowTimerBtnUI();
   updateTimerModeUI();
+  timerLoopBtn.classList.toggle("active", timerLoop);
+  applyTimerDurations();
   updateTimerSoundUI();
   updateTimerVolumeUI();
   playlistToggle.checked = playlistVisible;

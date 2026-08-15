@@ -213,6 +213,36 @@ test("timer: multi mode builds a sequence, Return undoes, Loop toggles", async (
   assert(doc.getElementById("timerLoopBtn").classList.contains("active"), "loop button should be active after click");
 });
 
+test("timer durations are editable, apply live, and persist", async (doc) => {
+  doc.getElementById("advancedDetails").open = true;
+  const inputs = doc.querySelectorAll(".timer-duration-input");
+  assertEqual(inputs.length, 6, "expected 6 duration inputs");
+  assertEqual(inputs[0].value, "5", "first duration input should default to 5");
+  inputs[0].value = "7";
+  inputs[0].dispatchEvent(new Event("change", { bubbles: true }));
+  assertEqual(doc.querySelector('.timer-duration-btn').dataset.minutes, "7", "editing the input should update the matching button's data-minutes");
+  assertEqual(doc.querySelector('.timer-duration-btn').textContent, "7m", "editing the input should update the matching button's label");
+  doc.getElementById("showTimerBtn").click();
+  doc.querySelector(".timer-duration-btn").click();
+  assertEqual(doc.getElementById("timerCountdown").textContent, "7:00", "starting the edited duration should count down from the new value");
+
+  const fresh = await loadFreshApp();
+  try {
+    fresh.doc.getElementById("advancedDetails").open = true;
+    assertEqual(fresh.doc.querySelector(".timer-duration-input").value, "7", "edited duration should persist across a reload");
+  } finally {
+    fresh.iframe.remove();
+  }
+});
+
+test("starting a timer flashes the PRACTICE wordart", async (doc) => {
+  const flash = doc.getElementById("practiceFlash");
+  assert(!flash.classList.contains("show"), "flash should not be showing before a timer starts");
+  doc.getElementById("showTimerBtn").click();
+  doc.querySelector(".timer-duration-btn").click();
+  assert(flash.classList.contains("show"), "flash should show once a timer queue actually starts");
+});
+
 // ---- settings persistence ----
 
 test("settings survive a reload", async (doc, win, ctx) => {
@@ -249,6 +279,15 @@ async function runAll() {
   for (const { name, fn } of tests) {
     let ctx;
     try {
+      // smoke.html and rg-latest.html are same-origin (same http server),
+      // so this clears the storage each test's first iframe loads with.
+      // Needed now that timerMode/timerLoop/timerDurationMinutes persist
+      // (previously only theme/timerSound/etc did) — otherwise one test's
+      // saved state leaks into the next test's "fresh" iframe. Cleared only
+      // here, once per top-level test, not inside loadFreshApp() itself —
+      // "settings survive a reload" calls loadFreshApp() a second time
+      // mid-test specifically to check its own just-saved settings persist.
+      localStorage.clear();
       ctx = await loadFreshApp();
       await fn(ctx.doc, ctx.win, ctx);
       if (ctx.errors.length) throw new Error("uncaught error(s) in app: " + ctx.errors.join(" | "));

@@ -307,6 +307,8 @@ input[type="number"]{
 }
 input[type="number"]:focus-visible{outline:2px solid var(--accent);}
 
+.timer-duration-input{width:54px; text-align:center; padding:7px 6px;}
+
 input[type="range"]{
   flex:1;
   min-width:120px;
@@ -432,6 +434,39 @@ body.timer-open .wrap{padding-bottom:240px;}
 }
 .timer-square.done{opacity:.4;}
 #timerLoopBtn.active{background:var(--accent); color:var(--accent-ink); border-color:var(--accent);}
+
+/* A brief full-screen flash of "PRACTICE" fired once when a timer queue
+   actually starts (not on each item within a multi-timer sequence) —
+   purely decorative, so pointer-events:none and aria-hidden keep it out of
+   the way of clicks and screen readers. Triggered by toggling .show; the
+   animation's own "forwards" fill keeps it invisible at rest without
+   needing separate hide-after-timeout JS. */
+.practice-flash{
+  position:fixed;
+  inset:0;
+  z-index:9999;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-family:'Space Grotesk',sans-serif;
+  font-weight:800;
+  font-size:clamp(48px, 12vw, 140px);
+  letter-spacing:0.05em;
+  color:var(--accent);
+  background:rgba(0,0,0,0.35);
+  opacity:0;
+  pointer-events:none;
+}
+.practice-flash.show{animation:practiceFlashPulse 1.6s ease-out forwards;}
+@keyframes practiceFlashPulse{
+  0%{opacity:0; transform:scale(.7);}
+  10%{opacity:1; transform:scale(1.05); color:var(--accent); text-shadow:0 0 20px var(--accent), 0 0 60px var(--accent);}
+  25%{color:var(--near); text-shadow:0 0 20px var(--near), 0 0 60px var(--near); transform:scale(1);}
+  40%{color:var(--accent); text-shadow:0 0 20px var(--accent), 0 0 60px var(--accent);}
+  55%{color:var(--near); text-shadow:0 0 20px var(--near), 0 0 60px var(--near);}
+  85%{opacity:1;}
+  100%{opacity:0; transform:scale(1);}
+}
 /* Return/Loop/Confirm read as icons (✕ / ∞ / ✓) rather than text pills —
    square-ish and a bit larger so a single glyph doesn't look lost. */
 .timer-symbol-btn{

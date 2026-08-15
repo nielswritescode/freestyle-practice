@@ -27,3 +27,14 @@ How this file works:
   - **Level 2:** Invert. Say your own rhyme first.
 
 2. Investigate where you get stuck and focus on one specific area at a time. 
+
+# General Practice Tips
+
+1. Actively make a choice on the level of privacy. Window open? Closed? At home or in the park? Would I like to rent a studio? 
+  - Others being able to hear us while we practice significantly affects our learning process. We can engage with this part of the process, but it's better when it's done as a conscious choice. Otherwise subconscious anxiety might be negatively influencing your practice and might even cause you to stop practicing entirely!
+
+2. Are you judging yourself? Do you allow yourself to feel and accept these judgements? Once accepted, they become easier to deal with. 
+  - I found myself judging myself for using English words while freestyling in Dutch. I found the judgement, took a minute to feel it. And then decided I actually didn't mind the occasional English word showing up in my practice. 
+
+3. If you find yourself doing other things while practicing, see if you can still practice without doing those things. 
+  - Writing them on a to-do list might help.
