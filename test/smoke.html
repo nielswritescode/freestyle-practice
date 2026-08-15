@@ -243,20 +243,36 @@ test("starting a timer flashes the PRACTICE wordart", async (doc) => {
   assert(flash.classList.contains("show"), "flash should show once a timer queue actually starts");
 });
 
-test("practice wordart flash picks one of 7 known styles, no stale style class on retrigger", async (doc) => {
-  const STYLES = ["glow", "slide", "flicker", "wipe", "glitch", "zoom", "flip"];
+test("practice wordart flash picks one of 7 known rollins, no stale rollin class on retrigger", async (doc) => {
+  const ROLLINS = ["glow", "slide", "flicker", "wipe", "glitch", "zoom", "flip"];
   const flash = doc.getElementById("practiceFlash");
-  const flashStyleClasses = () => STYLES.filter((s) => flash.classList.contains(`flash-${s}`));
+  const flashRollinClasses = () => ROLLINS.filter((s) => flash.classList.contains(`flash-${s}`));
 
   doc.getElementById("showTimerBtn").click();
   doc.querySelector('.timer-duration-btn[data-minutes="5"]').click();
-  assertEqual(flashStyleClasses().length, 1, "exactly one flash-* style class should be applied");
+  assertEqual(flashRollinClasses().length, 1, "exactly one flash-* rollin class should be applied");
+
+  // Stop and start again — the remove/reflow/add retrigger dance should
+  // clear the previous rollin class, not stack a second one alongside it.
+  doc.getElementById("timerCountdown").click();
+  doc.querySelector('.timer-duration-btn[data-minutes="10"]').click();
+  assertEqual(flashRollinClasses().length, 1, "still exactly one flash-* rollin class after retriggering");
+});
+
+test("practice wordart flash picks one of 7 known visual styles, independent of the rollin, no stale style class on retrigger", async (doc) => {
+  const STYLES = ["outline", "mono", "card", "underline", "italic", "wide", "neon"];
+  const flash = doc.getElementById("practiceFlash");
+  const flashStyleClasses = () => STYLES.filter((s) => flash.classList.contains(`style-${s}`));
+
+  doc.getElementById("showTimerBtn").click();
+  doc.querySelector('.timer-duration-btn[data-minutes="5"]').click();
+  assertEqual(flashStyleClasses().length, 1, "exactly one style-* class should be applied");
 
   // Stop and start again — the remove/reflow/add retrigger dance should
   // clear the previous style class, not stack a second one alongside it.
   doc.getElementById("timerCountdown").click();
   doc.querySelector('.timer-duration-btn[data-minutes="10"]').click();
-  assertEqual(flashStyleClasses().length, 1, "still exactly one flash-* style class after retriggering");
+  assertEqual(flashStyleClasses().length, 1, "still exactly one style-* class after retriggering");
 });
 
 test("timer options collapse when the timer is hidden", async (doc) => {

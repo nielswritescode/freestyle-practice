@@ -99,6 +99,8 @@
   let timerMode = "simple"; // 'simple' | 'multi' — also persisted, unlike the live countdown itself (see the timer state block below)
   let timerLoop = false;
   let timerDurationMinutes = [5, 10, 15, 20, 25, 30]; // editable via the Advanced-panel inputs, also persisted
+  const TIMER_DURATION_UNITS = ["minutes", "seconds"];
+  let timerDurationUnit = "minutes"; // whether the 6 values above mean minutes or seconds; also persisted
 
   // ---- persisted settings ----
   // Everything here is a user preference, not session data (a CSV upload
@@ -166,6 +168,7 @@
     ) {
       timerDurationMinutes = stored.timerDurationMinutes;
     }
+    if (TIMER_DURATION_UNITS.includes(stored.timerDurationUnit)) timerDurationUnit = stored.timerDurationUnit;
     if (stored.timerMode === "simple" || stored.timerMode === "multi") timerMode = stored.timerMode;
     if (typeof stored.timerLoop === "boolean") timerLoop = stored.timerLoop;
   }
@@ -191,6 +194,7 @@
         timerSound,
         timerVolume,
         timerDurationMinutes,
+        timerDurationUnit,
         timerMode,
         timerLoop,
         deletedWordsByLang: Object.fromEntries(
@@ -278,6 +282,7 @@
   const timerVolumeValue = document.getElementById("timerVolumeValue");
   const timerDurationBtns = document.querySelectorAll(".timer-duration-btn");
   const timerDurationInputs = document.querySelectorAll(".timer-duration-input");
+  const timerDurationUnitPills = document.querySelectorAll(".timer-duration-unit-pill");
   const practiceFlashEl = document.getElementById("practiceFlash");
   const timerSequenceEl = document.getElementById("timerSequence");
   const timerMultiActions = document.getElementById("timerMultiActions");
@@ -858,13 +863,14 @@
 
   // Practice timer — a fixed top-left overlay (see the CSS comment on
   // .timer-panel), on top of everything else including "Hide UI". timerMode,
-  // timerLoop and timerDurationMinutes are declared up near timerSound/
-  // timerVolume and persisted the same way — they're preferences. The rest
-  // here is deliberately NOT persisted: like Hide UI and reveal mode, you
-  // want a clean slate on a fresh visit rather than resuming mid-countdown
-  // or with a stale queue. Durations are in minutes (what the 6 buttons
-  // offer and what a built sequence is made of); the countdown itself still
-  // ticks in seconds internally so it can show MM:SS.
+  // timerLoop, timerDurationMinutes and timerDurationUnit are declared up
+  // near timerSound/timerVolume and persisted the same way — they're
+  // preferences. The rest here is deliberately NOT persisted: like Hide UI
+  // and reveal mode, you want a clean slate on a fresh visit rather than
+  // resuming mid-countdown or with a stale queue. Durations are in whatever
+  // timerDurationUnit says (what the 6 buttons offer and what a built
+  // sequence is made of); the countdown itself still ticks in seconds
+  // internally so it can show MM:SS.
   let timerVisible = false;
   let timerQueuedMinutes = []; // being built in multi mode, pre-Confirm
   let timerRunningNow = false;
@@ -907,24 +913,34 @@
     });
   });
 
+  // "m" or "s" depending on timerDurationUnit — shared by the duration
+  // buttons/inputs and the sequence squares so they always agree.
+  function timerUnitSuffix() {
+    return timerDurationUnit === "seconds" ? "s" : "m";
+  }
+
   // Renders a row of duration squares — reused for both the multi-mode
   // sequence builder (activeIndex -1, nothing marked done) and the running
   // view (the in-progress item highlighted, earlier ones dimmed as done).
   function renderTimerSquares(container, minutes, activeIndex) {
+    const suffix = timerUnitSuffix();
     container.innerHTML = minutes.map((m, i) => {
       const cls = i === activeIndex ? "active" : i < activeIndex ? "done" : "";
-      return `<div class="timer-square ${cls}">${m}m</div>`;
+      return `<div class="timer-square ${cls}">${m}${suffix}</div>`;
     }).join("");
   }
 
   // Keeps the 6 duration buttons' labels/data-minutes and the matching
   // Advanced-panel number inputs in sync with timerDurationMinutes, whether
-  // it just changed via an input or was restored from localStorage.
+  // it just changed via an input or was restored from localStorage. The
+  // buttons' values are always in timerDurationUnit — minutes or seconds —
+  // and startCurrentTimerItem is what actually converts them to seconds.
   function applyTimerDurations() {
+    const suffix = timerUnitSuffix();
     timerDurationBtns.forEach((btn, i) => {
       const m = timerDurationMinutes[i];
       btn.dataset.minutes = m;
-      btn.textContent = `${m}m`;
+      btn.textContent = `${m}${suffix}`;
     });
     timerDurationInputs.forEach((input, i) => {
       input.value = timerDurationMinutes[i];
@@ -939,6 +955,26 @@
       saveSettings();
     });
     input.addEventListener("focus", () => input.select());
+  });
+
+  function updateTimerDurationUnitUI() {
+    timerDurationUnitPills.forEach((btn) => {
+      btn.classList.toggle("active", btn.dataset.timerDurationUnit === timerDurationUnit);
+    });
+    applyTimerDurations();
+    // Re-label any squares already on screen (a queued multi-mode sequence,
+    // or the running view) so they stay in sync instead of showing a stale unit.
+    renderTimerSquares(timerSequenceEl, timerQueuedMinutes, -1);
+    if (timerMode === "multi" && timerRunningNow) {
+      renderTimerSquares(timerRunningSequenceEl, timerActiveQueue, timerQueueIndex);
+    }
+  }
+  timerDurationUnitPills.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      timerDurationUnit = btn.dataset.timerDurationUnit;
+      updateTimerDurationUnitUI();
+      saveSettings();
+    });
   });
 
   function formatMinSec(totalSeconds) {
@@ -1088,7 +1124,7 @@
   }
 
   function startCurrentTimerItem() {
-    timerRemainingSeconds = timerActiveQueue[timerQueueIndex] * 60;
+    timerRemainingSeconds = timerActiveQueue[timerQueueIndex] * (timerDurationUnit === "seconds" ? 1 : 60);
     timerCountdownEl.textContent = formatMinSec(timerRemainingSeconds);
     // Simple mode is just one bare countdown — no sequence, so no point
     // showing a single square for it.
@@ -1096,18 +1132,31 @@
     timerIntervalId = setInterval(tickTimer, 1000);
   }
 
-  // 7 alternate looks (see the matching flash-* keyframes in styles.css),
-  // one picked at random per flash so the wordart doesn't play the exact
-  // same animation every time a timer starts.
-  const PRACTICE_FLASH_STYLES = ["glow", "slide", "flicker", "wipe", "glitch", "zoom", "flip"];
+  // 7 alternate entrance/motion animations (see the matching flash-*
+  // keyframes in styles.css), one picked at random per flash so the
+  // wordart doesn't roll in the same way every time a timer starts.
+  const PRACTICE_FLASH_ROLLINS = ["glow", "slide", "flicker", "wipe", "glitch", "zoom", "flip"];
+  // 7 alternate visual looks (see the matching .style-* rules in
+  // styles.css) — a second, independent axis from the rollin above, so the
+  // two combine for up to 49 distinct flashes. These only ever touch CSS
+  // properties the rollin keyframes don't animate (background, border,
+  // font, text-stroke, decoration, ...), never opacity/transform/color/
+  // text-shadow/filter/clip-path, so the two layers can't fight over the
+  // same property mid-animation.
+  const PRACTICE_FLASH_STYLES = ["outline", "mono", "card", "underline", "italic", "wide", "neon"];
   // Retriggerable via the classList remove/reflow/add dance since the CSS
   // animation's "forwards" fill would otherwise leave it stuck invisible
   // (not "not yet started") on a second call.
   function flashPracticeWordart() {
-    practiceFlashEl.classList.remove("show", ...PRACTICE_FLASH_STYLES.map((s) => `flash-${s}`));
+    practiceFlashEl.classList.remove(
+      "show",
+      ...PRACTICE_FLASH_ROLLINS.map((s) => `flash-${s}`),
+      ...PRACTICE_FLASH_STYLES.map((s) => `style-${s}`)
+    );
     void practiceFlashEl.offsetWidth;
+    const rollin = PRACTICE_FLASH_ROLLINS[Math.floor(Math.random() * PRACTICE_FLASH_ROLLINS.length)];
     const style = PRACTICE_FLASH_STYLES[Math.floor(Math.random() * PRACTICE_FLASH_STYLES.length)];
-    practiceFlashEl.classList.add("show", `flash-${style}`);
+    practiceFlashEl.classList.add("show", `flash-${rollin}`, `style-${style}`);
   }
 
   function startTimerQueue(queue) {
@@ -1598,7 +1647,7 @@
   updateShowTimerBtnUI();
   updateTimerModeUI();
   timerLoopBtn.classList.toggle("active", timerLoop);
-  applyTimerDurations();
+  updateTimerDurationUnitUI();
   updateTimerSoundUI();
   updateTimerVolumeUI();
   playlistToggle.checked = playlistVisible;

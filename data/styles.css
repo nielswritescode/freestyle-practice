@@ -529,6 +529,18 @@ body.timer-open .wrap{padding-bottom:240px;}
   85%{opacity:1;}
   100%{opacity:0; transform:perspective(600px) rotateX(-20deg);}
 }
+
+/* 7 alternate visual looks, layered independently on top of whichever
+   flash-* rollin is picked (see PRACTICE_FLASH_STYLES in app.js). Each
+   only sets properties the rollin keyframes above never touch, so the two
+   axes can be combined freely without one clobbering the other mid-run. */
+.practice-flash.show.style-outline{-webkit-text-stroke:3px var(--ink); font-weight:900;}
+.practice-flash.show.style-mono{font-family:'Courier New',ui-monospace,monospace; font-weight:700; letter-spacing:0.02em;}
+.practice-flash.show.style-card{background:var(--panel); border:4px solid var(--ink); border-radius:20px; padding:0.15em 0.5em; box-shadow:10px 10px 0 var(--ink);}
+.practice-flash.show.style-underline{text-decoration:underline wavy; text-decoration-color:var(--near); text-underline-offset:14px; text-decoration-thickness:6px;}
+.practice-flash.show.style-italic{font-family:Georgia,'Times New Roman',serif; font-style:italic; font-weight:700;}
+.practice-flash.show.style-wide{letter-spacing:0.35em; font-weight:500;}
+.practice-flash.show.style-neon{background:radial-gradient(ellipse at center, var(--panel-2) 0%, transparent 70%); border-radius:28px; padding:0.2em 0.6em; backdrop-filter:blur(2px);}
 /* Return/Loop/Confirm read as icons (✕ / ∞ / ✓) rather than text pills —
    square-ish and a bit larger so a single glyph doesn't look lost. */
 .timer-symbol-btn{
