@@ -102,6 +102,8 @@
   const TIMER_DURATION_UNITS = ["minutes", "seconds"];
   let timerDurationUnit = "minutes"; // whether the 6 values above mean minutes or seconds; also persisted
 
+  let metronomeBpm = 120; // persisted, like timerVolume — a preference, not session state
+
   // ---- persisted settings ----
   // Everything here is a user preference, not session data (a CSV upload
   // isn't remembered — file inputs can't be restored anyway, and Dutch/
@@ -171,6 +173,9 @@
     if (TIMER_DURATION_UNITS.includes(stored.timerDurationUnit)) timerDurationUnit = stored.timerDurationUnit;
     if (stored.timerMode === "simple" || stored.timerMode === "multi") timerMode = stored.timerMode;
     if (typeof stored.timerLoop === "boolean") timerLoop = stored.timerLoop;
+    if (typeof stored.metronomeBpm === "number" && stored.metronomeBpm >= 40 && stored.metronomeBpm <= 240) {
+      metronomeBpm = stored.metronomeBpm;
+    }
   }
 
   function saveSettings() {
@@ -197,6 +202,7 @@
         timerDurationUnit,
         timerMode,
         timerLoop,
+        metronomeBpm,
         deletedWordsByLang: Object.fromEntries(
           Object.entries(deletedWordSets).map(([lang, set]) => [lang, [...set]])
         ),
@@ -292,6 +298,12 @@
   const timerRunningEl = document.getElementById("timerRunning");
   const timerRunningSequenceEl = document.getElementById("timerRunningSequence");
   const timerCountdownEl = document.getElementById("timerCountdown");
+  const showMetronomeBtn = document.getElementById("showMetronomeBtn");
+  const metronomePanel = document.getElementById("metronomePanel");
+  const metronomeBpmSlider = document.getElementById("metronomeBpmSlider");
+  const metronomeBpmValue = document.getElementById("metronomeBpmValue");
+  const metronomeToggleBtn = document.getElementById("metronomeToggleBtn");
+  const metronomeBeatEl = document.getElementById("metronomeBeat");
 
   // Heuristic syllable counter (vowel-group count, with a naive silent-e
   // correction). Not phonetically exact, but the built-in pronunciation data
@@ -1204,6 +1216,103 @@
   // The countdown number is itself the stop control — no separate button.
   timerCountdownEl.addEventListener("click", returnToTimerPicker);
 
+  // Practice metronome — a fixed top-bar overlay (see the CSS comment on
+  // .metronome-panel), independent of the timer so both can run together.
+  // metronomeBpm is declared up near timerVolume and persisted the same
+  // way; whether it's currently playing is deliberately NOT persisted, same
+  // reasoning as timerRunningNow — a fresh visit shouldn't resume mid-tick.
+  let metronomeVisible = false;
+  let metronomeRunning = false;
+  let metronomeIntervalId = null;
+
+  function updateShowMetronomeBtnUI() {
+    metronomePanel.hidden = !metronomeVisible;
+    showMetronomeBtn.textContent = metronomeVisible ? "Hide metronome" : "Show metronome";
+    document.body.classList.toggle("metronome-open", metronomeVisible);
+  }
+  showMetronomeBtn.addEventListener("click", () => {
+    primeTimerAudio(); // shared with the timer — see primeTimerAudio's comment on why this needs a real click
+    metronomeVisible = !metronomeVisible;
+    updateShowMetronomeBtnUI();
+  });
+
+  function updateMetronomeBpmUI() {
+    metronomeBpmSlider.value = String(metronomeBpm);
+    metronomeBpmValue.textContent = `${metronomeBpm} BPM`;
+  }
+
+  // A short, plain click — reuses sharedAudioCtx (see primeTimerAudio/
+  // playTimerSound above) rather than spinning up a second AudioContext.
+  function playMetronomeTick() {
+    try {
+      const ctx = sharedAudioCtx;
+      if (!ctx) return;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "square";
+      osc.frequency.value = 1000;
+      const t0 = ctx.currentTime;
+      gain.gain.setValueAtTime(0, t0);
+      gain.gain.linearRampToValueAtTime(0.25, t0 + 0.002);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.05);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start(t0);
+      osc.stop(t0 + 0.06);
+    } catch (e) {
+      // Web Audio unavailable/blocked — the beat dot still pulses visually
+    }
+  }
+
+  // Remove/reflow/add so the CSS transition actually retriggers on every
+  // beat instead of only firing once (same dance as flashPracticeWordart).
+  function pulseMetronomeBeat() {
+    metronomeBeatEl.classList.remove("pulse");
+    void metronomeBeatEl.offsetWidth;
+    metronomeBeatEl.classList.add("pulse");
+  }
+
+  function tickMetronome() {
+    playMetronomeTick();
+    pulseMetronomeBeat();
+  }
+
+  function stopMetronome() {
+    if (metronomeIntervalId) {
+      clearInterval(metronomeIntervalId);
+      metronomeIntervalId = null;
+    }
+    metronomeRunning = false;
+    metronomeToggleBtn.textContent = "Start";
+  }
+
+  function startMetronome() {
+    primeTimerAudio();
+    metronomeRunning = true;
+    metronomeToggleBtn.textContent = "Stop";
+    tickMetronome();
+    metronomeIntervalId = setInterval(tickMetronome, 60000 / metronomeBpm);
+  }
+
+  metronomeBpmSlider.addEventListener("input", () => {
+    metronomeBpm = clamp(parseInt(metronomeBpmSlider.value, 10), 40, 240);
+    updateMetronomeBpmUI();
+    // Re-time the running interval immediately so dragging the slider while
+    // playing is heard right away, not just on the next Start.
+    if (metronomeRunning) {
+      clearInterval(metronomeIntervalId);
+      metronomeIntervalId = setInterval(tickMetronome, 60000 / metronomeBpm);
+    }
+  });
+  metronomeBpmSlider.addEventListener("change", saveSettings);
+
+  metronomeToggleBtn.addEventListener("click", () => {
+    if (metronomeRunning) {
+      stopMetronome();
+    } else {
+      startMetronome();
+    }
+  });
+
   function parseCsv(text) {
     return text
       .split(/[,\n\r]+/)
@@ -1650,6 +1759,8 @@
   updateTimerDurationUnitUI();
   updateTimerSoundUI();
   updateTimerVolumeUI();
+  updateShowMetronomeBtnUI();
+  updateMetronomeBpmUI();
   playlistToggle.checked = playlistVisible;
   playlistSourceSelect.value = playlistSource;
   updatePlaylistSource();
