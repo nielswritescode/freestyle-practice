@@ -277,6 +277,10 @@
   const practicesPanel = document.getElementById("practicesPanel");
   const practicesButtonRow = document.getElementById("practicesButtonRow");
   const themeSwatches = document.querySelectorAll(".theme-swatch");
+  const shareWhatsappBtn = document.getElementById("shareWhatsappBtn");
+  const shareFacebookBtn = document.getElementById("shareFacebookBtn");
+  const shareInstagramBtn = document.getElementById("shareInstagramBtn");
+  const shareStatus = document.getElementById("shareStatus");
   const showTimerBtn = document.getElementById("showTimerBtn");
   const timerPanel = document.getElementById("timerPanel");
   const timerOptionsGroup = document.getElementById("timerOptionsGroup");
@@ -871,6 +875,37 @@
       applyTheme();
       saveSettings();
     });
+  });
+
+  // Share this link with friends. WhatsApp and Facebook both have simple
+  // web share intents that just take the URL/text directly. Instagram has
+  // no equivalent for arbitrary links, so instead we copy the link to the
+  // clipboard and send the user to Instagram to paste it themselves
+  // (bio, story, or DM) — window.open is called synchronously in the click
+  // handler (before the async clipboard write resolves) so it isn't
+  // treated as a popup and blocked.
+  let shareStatusTimeout = null;
+  function showShareStatus(msg) {
+    shareStatus.textContent = msg;
+    clearTimeout(shareStatusTimeout);
+    shareStatusTimeout = setTimeout(() => { shareStatus.textContent = ""; }, 5000);
+  }
+  shareWhatsappBtn.addEventListener("click", () => {
+    const text = `Check out RhymeFlow — rhyme pairs to freestyle to: ${location.href}`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank", "noopener,noreferrer");
+  });
+  shareFacebookBtn.addEventListener("click", () => {
+    window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(location.href)}`, "_blank", "noopener,noreferrer");
+  });
+  shareInstagramBtn.addEventListener("click", () => {
+    window.open("https://www.instagram.com/", "_blank", "noopener,noreferrer");
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(location.href)
+        .then(() => showShareStatus("Link copied — Instagram doesn't support sharing links directly, so paste it into your bio, story, or a DM."))
+        .catch(() => showShareStatus("Couldn't copy the link automatically — copy it from your address bar to share it on Instagram."));
+    } else {
+      showShareStatus("Copy the link from your address bar to share it on Instagram — direct link sharing isn't supported there.");
+    }
   });
 
   // Practice timer — a fixed top-left overlay (see the CSS comment on

@@ -400,6 +400,32 @@ test("syllable range slider responds to a drag", async (doc) => {
   assert(doc.getElementById("sylRangeValue").textContent !== "Any", "dragging the slider should change the displayed range");
 });
 
+// ---- share links ----
+
+test("share buttons: WhatsApp/Facebook open the right share URLs, Instagram copies the link", async (doc, win) => {
+  const opened = [];
+  win.open = (url) => { opened.push(url); return null; };
+  let copiedText = null;
+  Object.defineProperty(win.navigator, "clipboard", {
+    value: { writeText: (text) => { copiedText = text; return Promise.resolve(); } },
+    configurable: true,
+  });
+
+  doc.getElementById("shareWhatsappBtn").click();
+  assert(opened[0].startsWith("https://wa.me/?text="), "WhatsApp button should open a wa.me share link");
+  assert(decodeURIComponent(opened[0]).includes(win.location.href), "WhatsApp share text should include the page URL");
+
+  doc.getElementById("shareFacebookBtn").click();
+  assert(opened[1].startsWith("https://www.facebook.com/sharer/sharer.php?u="), "Facebook button should open the FB sharer");
+  assertEqual(decodeURIComponent(opened[1].split("u=")[1]), win.location.href, "Facebook share URL should be the page URL");
+
+  doc.getElementById("shareInstagramBtn").click();
+  assertEqual(opened[2], "https://www.instagram.com/", "Instagram button should open instagram.com");
+  await sleep(50);
+  assertEqual(copiedText, win.location.href, "Instagram button should copy the page URL to the clipboard");
+  assert(doc.getElementById("shareStatus").textContent.length > 0, "share status should show a message after the Instagram click");
+});
+
 // ---- runner ----
 
 async function runAll() {
