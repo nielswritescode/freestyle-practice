@@ -103,6 +103,7 @@
   let timerDurationUnit = "minutes"; // whether the 6 values above mean minutes or seconds; also persisted
 
   let metronomeBpm = 120; // persisted, like timerVolume — a preference, not session state
+  let metronomeVolume = 0.7; // 0..1, persisted the same way as timerVolume
 
   // ---- persisted settings ----
   // Everything here is a user preference, not session data (a CSV upload
@@ -176,6 +177,9 @@
     if (typeof stored.metronomeBpm === "number" && stored.metronomeBpm >= 40 && stored.metronomeBpm <= 240) {
       metronomeBpm = stored.metronomeBpm;
     }
+    if (typeof stored.metronomeVolume === "number" && stored.metronomeVolume >= 0 && stored.metronomeVolume <= 1) {
+      metronomeVolume = stored.metronomeVolume;
+    }
   }
 
   function saveSettings() {
@@ -203,6 +207,7 @@
         timerMode,
         timerLoop,
         metronomeBpm,
+        metronomeVolume,
         deletedWordsByLang: Object.fromEntries(
           Object.entries(deletedWordSets).map(([lang, set]) => [lang, [...set]])
         ),
@@ -282,6 +287,7 @@
   const shareInstagramBtn = document.getElementById("shareInstagramBtn");
   const shareStatus = document.getElementById("shareStatus");
   const showTimerBtn = document.getElementById("showTimerBtn");
+  const timerCloseBtn = document.getElementById("timerCloseBtn");
   const timerPanel = document.getElementById("timerPanel");
   const timerOptionsGroup = document.getElementById("timerOptionsGroup");
   const timerSetup = document.getElementById("timerSetup");
@@ -303,9 +309,12 @@
   const timerRunningSequenceEl = document.getElementById("timerRunningSequence");
   const timerCountdownEl = document.getElementById("timerCountdown");
   const showMetronomeBtn = document.getElementById("showMetronomeBtn");
+  const metronomeCloseBtn = document.getElementById("metronomeCloseBtn");
   const metronomePanel = document.getElementById("metronomePanel");
   const metronomeBpmSlider = document.getElementById("metronomeBpmSlider");
   const metronomeBpmValue = document.getElementById("metronomeBpmValue");
+  const metronomeVolumeSlider = document.getElementById("metronomeVolumeSlider");
+  const metronomeVolumeValue = document.getElementById("metronomeVolumeValue");
   const metronomeToggleBtn = document.getElementById("metronomeToggleBtn");
   const metronomeBeatEl = document.getElementById("metronomeBeat");
 
@@ -940,6 +949,10 @@
     timerVisible = !timerVisible;
     updateShowTimerBtnUI();
   });
+  // The panel's own ✕ only ever appears while the panel is visible, so
+  // delegating to showTimerBtn's click (rather than duplicating its body)
+  // always lands on the hide branch of its toggle.
+  timerCloseBtn.addEventListener("click", () => showTimerBtn.click());
 
   function updateTimerModeUI() {
     timerModePills.forEach((btn) => {
@@ -1268,13 +1281,29 @@
   showMetronomeBtn.addEventListener("click", () => {
     primeTimerAudio(); // shared with the timer — see primeTimerAudio's comment on why this needs a real click
     metronomeVisible = !metronomeVisible;
+    if (!metronomeVisible && metronomeRunning) {
+      stopMetronome();
+    }
     updateShowMetronomeBtnUI();
   });
+  // Same delegation reasoning as timerCloseBtn above.
+  metronomeCloseBtn.addEventListener("click", () => showMetronomeBtn.click());
 
   function updateMetronomeBpmUI() {
     metronomeBpmSlider.value = String(metronomeBpm);
     metronomeBpmValue.textContent = `${metronomeBpm} BPM`;
   }
+
+  function updateMetronomeVolumeUI() {
+    const pct = Math.round(metronomeVolume * 100);
+    metronomeVolumeSlider.value = String(pct);
+    metronomeVolumeValue.textContent = `${pct}%`;
+  }
+  metronomeVolumeSlider.addEventListener("input", () => {
+    metronomeVolume = clamp(parseInt(metronomeVolumeSlider.value, 10), 0, 100) / 100;
+    updateMetronomeVolumeUI();
+  });
+  metronomeVolumeSlider.addEventListener("change", saveSettings);
 
   // A short, plain click — reuses sharedAudioCtx (see primeTimerAudio/
   // playTimerSound above) rather than spinning up a second AudioContext.
@@ -1287,8 +1316,9 @@
       osc.type = "square";
       osc.frequency.value = 1000;
       const t0 = ctx.currentTime;
+      const peak = 0.25 * metronomeVolume;
       gain.gain.setValueAtTime(0, t0);
-      gain.gain.linearRampToValueAtTime(0.25, t0 + 0.002);
+      gain.gain.linearRampToValueAtTime(peak, t0 + 0.002);
       gain.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.05);
       osc.connect(gain).connect(ctx.destination);
       osc.start(t0);
@@ -1796,6 +1826,7 @@
   updateTimerVolumeUI();
   updateShowMetronomeBtnUI();
   updateMetronomeBpmUI();
+  updateMetronomeVolumeUI();
   playlistToggle.checked = playlistVisible;
   playlistSourceSelect.value = playlistSource;
   updatePlaylistSource();

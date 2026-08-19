@@ -327,6 +327,22 @@ test("metronome: show toggles the panel, Start/Stop toggles ticking", async (doc
   assertEqual(displayOf(doc.getElementById("metronomePanel")), "none", "metronome panel should hide again");
 });
 
+test("metronome: hiding the panel while running stops the ticking", async (doc) => {
+  doc.getElementById("advancedDetails").open = true;
+  doc.getElementById("showMetronomeBtn").click();
+
+  const toggleBtn = doc.getElementById("metronomeToggleBtn");
+  toggleBtn.click();
+  assertEqual(toggleBtn.textContent, "Stop", "button should flip to Stop once running");
+
+  doc.getElementById("showMetronomeBtn").click();
+  assertEqual(displayOf(doc.getElementById("metronomePanel")), "none", "metronome panel should hide");
+
+  doc.getElementById("showMetronomeBtn").click();
+  assertEqual(displayOf(doc.getElementById("metronomePanel")), "flex", "metronome panel should show again");
+  assertEqual(toggleBtn.textContent, "Start", "metronome should have stopped running while hidden");
+});
+
 test("metronome BPM slider updates the displayed value and persists", async (doc) => {
   doc.getElementById("advancedDetails").open = true;
   doc.getElementById("showMetronomeBtn").click();
@@ -346,6 +362,47 @@ test("metronome BPM slider updates the displayed value and persists", async (doc
   } finally {
     fresh.iframe.remove();
   }
+});
+
+test("metronome volume slider updates the displayed value and persists", async (doc) => {
+  doc.getElementById("advancedDetails").open = true;
+  doc.getElementById("showMetronomeBtn").click();
+  assertEqual(doc.getElementById("metronomeVolumeValue").textContent, "70%", "should default to 70%");
+
+  const slider = doc.getElementById("metronomeVolumeSlider");
+  slider.value = "30";
+  slider.dispatchEvent(new Event("input", { bubbles: true }));
+  assertEqual(doc.getElementById("metronomeVolumeValue").textContent, "30%", "changing the slider should update the displayed volume");
+  slider.dispatchEvent(new Event("change", { bubbles: true }));
+
+  const fresh = await loadFreshApp();
+  try {
+    fresh.doc.getElementById("advancedDetails").open = true;
+    fresh.doc.getElementById("showMetronomeBtn").click();
+    assertEqual(fresh.doc.getElementById("metronomeVolumeSlider").value, "30", "volume should persist across a reload");
+  } finally {
+    fresh.iframe.remove();
+  }
+});
+
+test("timer and metronome ✕ buttons hide their panel", async (doc) => {
+  doc.getElementById("advancedDetails").open = true;
+
+  doc.getElementById("showTimerBtn").click();
+  assertEqual(displayOf(doc.getElementById("timerPanel")), "flex", "timer panel should show");
+  doc.getElementById("timerCloseBtn").click();
+  assertEqual(displayOf(doc.getElementById("timerPanel")), "none", "✕ should hide the timer panel");
+  assertEqual(doc.getElementById("showTimerBtn").textContent, "Show timer", "hiding via ✕ should flip the toggle button back");
+
+  doc.getElementById("showMetronomeBtn").click();
+  assertEqual(displayOf(doc.getElementById("metronomePanel")), "flex", "metronome panel should show");
+  const toggleBtn = doc.getElementById("metronomeToggleBtn");
+  toggleBtn.click();
+  assertEqual(toggleBtn.textContent, "Stop", "metronome should be running");
+  doc.getElementById("metronomeCloseBtn").click();
+  assertEqual(displayOf(doc.getElementById("metronomePanel")), "none", "✕ should hide the metronome panel");
+  doc.getElementById("showMetronomeBtn").click();
+  assertEqual(toggleBtn.textContent, "Start", "✕ should have stopped the metronome, same as the Hide metronome button");
 });
 
 // ---- settings persistence ----
