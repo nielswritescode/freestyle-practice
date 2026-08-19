@@ -638,7 +638,7 @@ a.btn-ghost{text-decoration:none; display:inline-block;}
 .hide-ui-btn{
   position:fixed;
   top:14px;
-  right:14px;
+  left:14px;
   z-index:30;
   background:var(--panel);
   box-shadow:0 2px 10px rgba(0,0,0,.35);
