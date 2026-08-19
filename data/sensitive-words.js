@@ -28,6 +28,8 @@ const SENSITIVE_WORDS = {
     "kloten", "slet", "sletten", "pedofiel", "verkrachting", "verkracht",
     "masturberen", "orgasme", "porno", "cocaïne", "heroïne",
     "klerezooi", "kutzooi", "reet", "stoned",
+    "nikker", "nikkers", "flikker", "flikkers", "mongool", "mongolen",
+    "kutmarokkaan", "kutmarokkanen",
   ],
   de: [
     "scheiße", "scheisse", "arsch", "arschloch", "hure", "huren", "fotze", "ficken",
