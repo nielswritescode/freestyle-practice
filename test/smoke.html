@@ -364,6 +364,26 @@ test("metronome BPM slider updates the displayed value and persists", async (doc
   }
 });
 
+test("timer and metronome ✕ buttons hide their panel", async (doc) => {
+  doc.getElementById("advancedDetails").open = true;
+
+  doc.getElementById("showTimerBtn").click();
+  assertEqual(displayOf(doc.getElementById("timerPanel")), "flex", "timer panel should show");
+  doc.getElementById("timerCloseBtn").click();
+  assertEqual(displayOf(doc.getElementById("timerPanel")), "none", "✕ should hide the timer panel");
+  assertEqual(doc.getElementById("showTimerBtn").textContent, "Show timer", "hiding via ✕ should flip the toggle button back");
+
+  doc.getElementById("showMetronomeBtn").click();
+  assertEqual(displayOf(doc.getElementById("metronomePanel")), "flex", "metronome panel should show");
+  const toggleBtn = doc.getElementById("metronomeToggleBtn");
+  toggleBtn.click();
+  assertEqual(toggleBtn.textContent, "Stop", "metronome should be running");
+  doc.getElementById("metronomeCloseBtn").click();
+  assertEqual(displayOf(doc.getElementById("metronomePanel")), "none", "✕ should hide the metronome panel");
+  doc.getElementById("showMetronomeBtn").click();
+  assertEqual(toggleBtn.textContent, "Start", "✕ should have stopped the metronome, same as the Hide metronome button");
+});
+
 // ---- settings persistence ----
 
 test("settings survive a reload", async (doc, win, ctx) => {

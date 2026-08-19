@@ -282,6 +282,7 @@
   const shareInstagramBtn = document.getElementById("shareInstagramBtn");
   const shareStatus = document.getElementById("shareStatus");
   const showTimerBtn = document.getElementById("showTimerBtn");
+  const timerCloseBtn = document.getElementById("timerCloseBtn");
   const timerPanel = document.getElementById("timerPanel");
   const timerOptionsGroup = document.getElementById("timerOptionsGroup");
   const timerSetup = document.getElementById("timerSetup");
@@ -303,6 +304,7 @@
   const timerRunningSequenceEl = document.getElementById("timerRunningSequence");
   const timerCountdownEl = document.getElementById("timerCountdown");
   const showMetronomeBtn = document.getElementById("showMetronomeBtn");
+  const metronomeCloseBtn = document.getElementById("metronomeCloseBtn");
   const metronomePanel = document.getElementById("metronomePanel");
   const metronomeBpmSlider = document.getElementById("metronomeBpmSlider");
   const metronomeBpmValue = document.getElementById("metronomeBpmValue");
@@ -940,6 +942,10 @@
     timerVisible = !timerVisible;
     updateShowTimerBtnUI();
   });
+  // The panel's own ✕ only ever appears while the panel is visible, so
+  // delegating to showTimerBtn's click (rather than duplicating its body)
+  // always lands on the hide branch of its toggle.
+  timerCloseBtn.addEventListener("click", () => showTimerBtn.click());
 
   function updateTimerModeUI() {
     timerModePills.forEach((btn) => {
@@ -1273,6 +1279,8 @@
     }
     updateShowMetronomeBtnUI();
   });
+  // Same delegation reasoning as timerCloseBtn above.
+  metronomeCloseBtn.addEventListener("click", () => showMetronomeBtn.click());
 
   function updateMetronomeBpmUI() {
     metronomeBpmSlider.value = String(metronomeBpm);

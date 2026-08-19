@@ -387,6 +387,25 @@ input[type="range"]:focus-visible{outline:2px solid var(--accent); outline-offse
   overflow-y:auto;
 }
 .timer-panel[hidden]{display:none;}
+/* Both .timer-panel and .metronome-panel are position:fixed, which is
+   itself enough to make them the containing block for this — no extra
+   position:relative needed on either. */
+.panel-close-btn{
+  position:absolute;
+  top:10px;
+  right:14px;
+  width:24px;
+  height:24px;
+  padding:0;
+  line-height:1;
+  border:1px solid var(--line);
+  border-radius:50%;
+  background:var(--panel-2);
+  color:var(--ink-dim);
+  font-size:12px;
+  cursor:pointer;
+}
+.panel-close-btn:hover{color:var(--ink);}
 .timer-panel .row{justify-content:center;}
 body.timer-open .wrap{padding-bottom:240px;}
 .timer-setup[hidden],

@@ -225,6 +225,7 @@
   </div>
 
   <div class="panel timer-panel" id="timerPanel" hidden>
+    <button type="button" class="panel-close-btn" id="timerCloseBtn" aria-label="Hide timer">✕</button>
     <div class="timer-setup" id="timerSetup">
       <div class="timer-picker" id="timerPicker">
         <div class="row timer-duration-row" id="timerDurationRow">
@@ -251,6 +252,7 @@
   </div>
 
   <div class="panel metronome-panel" id="metronomePanel" hidden>
+    <button type="button" class="panel-close-btn" id="metronomeCloseBtn" aria-label="Hide metronome">✕</button>
     <div class="metronome-beat" id="metronomeBeat" aria-hidden="true"></div>
     <div class="metronome-bpm-value" id="metronomeBpmValue">120 BPM</div>
     <input type="range" id="metronomeBpmSlider" min="40" max="240" step="1" value="120" aria-label="Beats per minute">
