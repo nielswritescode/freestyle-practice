@@ -750,10 +750,17 @@ body.metronome-open .wrap{padding-top:190px;}
   flex-wrap:wrap;
   justify-content:center;
 }
-.share-label{
-  font-size:12px;
-  font-weight:600;
-  color:var(--ink-dim);
+.share-btn{
+  width:38px;
+  height:38px;
+  padding:0;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+}
+.share-btn svg{
+  width:18px;
+  height:18px;
 }
 .share-status{
   max-width:760px;
