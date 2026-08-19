@@ -235,6 +235,7 @@
   const customCountInput = document.getElementById("customCount");
   const typePills = document.querySelectorAll(".type-pill");
   const slantToggle = document.getElementById("slantToggle");
+  const slantToggleRow = document.getElementById("slantToggleRow");
   const csvInput = document.getElementById("csvInput");
   const csvAddBtn = document.getElementById("csvAddBtn");
   const csvOnlyBtn = document.getElementById("csvOnlyBtn");
@@ -503,6 +504,10 @@
       btn.classList.toggle("active", btn.dataset.lang === currentLanguage);
     });
     wordListLabel.textContent = LANG_META[currentLanguage].wordListLabel;
+    // The curated slant-rhyme data is English-only; other languages would
+    // fall back to the low-quality phonetic heuristic, so hide the toggle
+    // rather than offer a feature that doesn't hold up.
+    slantToggleRow.hidden = !slantDbForCurrentLanguage();
   }
 
   langPills.forEach((btn) => {
@@ -1701,7 +1706,10 @@
   }
 
   function generate(scroll) {
-    const types = [...activeTypes];
+    // Keep the "slant enabled" preference across language switches (so it's
+    // back on when the user returns to English), but don't act on it while
+    // the toggle is hidden for a language that doesn't support it.
+    const types = [...activeTypes].filter((t) => t !== "slant" || slantDbForCurrentLanguage());
     const getKey = LANGS[currentLanguage].getKey;
     const pairs = sensitiveWordMode === "only"
       ? generateSensitiveOnlyPairs(types, getKey)
