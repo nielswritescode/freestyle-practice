@@ -923,7 +923,7 @@
     shareStatusTimeout = setTimeout(() => { shareStatus.textContent = ""; }, 5000);
   }
   shareWhatsappBtn.addEventListener("click", () => {
-    const text = `Check out RhymeFlow — rhyme pairs to freestyle to: ${location.href}`;
+    const text = `Check out RhymeJoy — rhyme pairs to freestyle to: ${location.href}`;
     window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank", "noopener,noreferrer");
   });
   shareFacebookBtn.addEventListener("click", () => {

@@ -1,4 +1,4 @@
-Practices for RhymeFlow.
+Practices for RhymeJoy.
 
 How this file works:
 - Each "# Heading" below starts a new practice. Its heading text becomes the
