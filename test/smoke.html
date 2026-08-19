@@ -327,6 +327,22 @@ test("metronome: show toggles the panel, Start/Stop toggles ticking", async (doc
   assertEqual(displayOf(doc.getElementById("metronomePanel")), "none", "metronome panel should hide again");
 });
 
+test("metronome: hiding the panel while running stops the ticking", async (doc) => {
+  doc.getElementById("advancedDetails").open = true;
+  doc.getElementById("showMetronomeBtn").click();
+
+  const toggleBtn = doc.getElementById("metronomeToggleBtn");
+  toggleBtn.click();
+  assertEqual(toggleBtn.textContent, "Stop", "button should flip to Stop once running");
+
+  doc.getElementById("showMetronomeBtn").click();
+  assertEqual(displayOf(doc.getElementById("metronomePanel")), "none", "metronome panel should hide");
+
+  doc.getElementById("showMetronomeBtn").click();
+  assertEqual(displayOf(doc.getElementById("metronomePanel")), "flex", "metronome panel should show again");
+  assertEqual(toggleBtn.textContent, "Start", "metronome should have stopped running while hidden");
+});
+
 test("metronome BPM slider updates the displayed value and persists", async (doc) => {
   doc.getElementById("advancedDetails").open = true;
   doc.getElementById("showMetronomeBtn").click();

@@ -1268,6 +1268,9 @@
   showMetronomeBtn.addEventListener("click", () => {
     primeTimerAudio(); // shared with the timer — see primeTimerAudio's comment on why this needs a real click
     metronomeVisible = !metronomeVisible;
+    if (!metronomeVisible && metronomeRunning) {
+      stopMetronome();
+    }
     updateShowMetronomeBtnUI();
   });
 
