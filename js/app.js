@@ -75,7 +75,7 @@
   let autoRefreshEnabled = false;
   let autoRefreshSeconds = 60;
   let defStyle = "links"; // 'links' | 'simple' | 'full' | 'delete'
-  let activeTypes = new Set(["perfect"]); // near/slant archived (quality too poor), see rhyme-classify.js
+  let activeTypes = new Set(["perfect"]); // near still hidden; slant toggled via #slantToggle below
 
   // Upper handle maxes out at "Any" (no cap) rather than literally capping
   // at 6 — most words are well under that anyway, so it reads as "off" at
@@ -157,6 +157,7 @@
     if (typeof stored.minSyllables === "number" && stored.minSyllables >= 1 && stored.minSyllables <= maxSyllables) {
       minSyllables = stored.minSyllables;
     }
+    if (stored.slantEnabled === true) activeTypes.add("slant");
     if (SENSITIVE_MODES.includes(stored.sensitiveWordMode)) sensitiveWordMode = stored.sensitiveWordMode;
     if (VALID_THEMES.includes(stored.theme)) currentTheme = stored.theme;
     if (TIMER_SOUNDS.includes(stored.timerSound)) timerSound = stored.timerSound;
@@ -192,6 +193,7 @@
         autoRefreshEnabled: autoRefreshToggle.checked,
         autoRefreshSeconds,
         defStyle,
+        slantEnabled: activeTypes.has("slant"),
         minSyllables,
         maxSyllables,
         sensitiveWordMode,
@@ -227,6 +229,7 @@
   const countPills = document.querySelectorAll(".count-pill");
   const customCountInput = document.getElementById("customCount");
   const typePills = document.querySelectorAll(".type-pill");
+  const slantToggle = document.getElementById("slantToggle");
   const csvInput = document.getElementById("csvInput");
   const csvAddBtn = document.getElementById("csvAddBtn");
   const csvOnlyBtn = document.getElementById("csvOnlyBtn");
@@ -529,6 +532,14 @@
       }
       setTypePillsUI();
     });
+  });
+
+  slantToggle.addEventListener("change", () => {
+    if (slantToggle.checked) activeTypes.add("slant");
+    else activeTypes.delete("slant");
+    setTypePillsUI(); // keep the hidden type-pill row's state in sync too
+    saveSettings();
+    generate();
   });
 
   function clamp(v, lo, hi) { return Math.min(hi, Math.max(lo, v)); }
@@ -1804,6 +1815,7 @@
   autoRefreshSecondsInput.value = autoRefreshSeconds;
   setLangPillsUI();
   setCountPillsUI();
+  slantToggle.checked = activeTypes.has("slant");
   setTypePillsUI();
   renderDiffUI();
   renderSyllableUI();
