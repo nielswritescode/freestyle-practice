@@ -1,6 +1,7 @@
 // Best-effort word list for the "Sensitive words filter" toggle: profanity,
-// sexually explicit terms, hard-drug references, and graphic violence/
-// self-harm terms to exclude from generated pairs when the filter is on.
+// sexually explicit terms, hard-drug references, graphic violence/self-harm
+// terms, and ethnic/homophobic/ableist slurs to exclude from generated
+// pairs when the filter is on.
 // Not exhaustive — the English list was checked against what's actually in
 // data/words-data.js; the other languages are a smaller starting curation
 // of common, unambiguous terms and may need extending over time.
@@ -21,6 +22,10 @@ const SENSITIVE_WORDS = {
     "bollocks", "douche", "douchebag", "skank", "smut", "blowjob", "handjob",
     "threesome", "bdsm", "genitals", "testicle", "testicles", "clit",
     "nipple", "nipples", "boob", "boobs", "titty", "titties", "stripper", "strippers",
+    "nigger", "niggers", "nigga", "niggas", "chink", "chinks", "spic", "spics",
+    "gook", "gooks", "kike", "kikes", "wetback", "wetbacks", "raghead", "ragheads",
+    "faggot", "faggots", "fag", "fags", "dyke", "dykes", "tranny", "trannies",
+    "retard", "retarded", "retards", "spaz", "spastic",
   ],
   nl: [
     "kut", "kutwijf", "klote", "hoer", "hoeren", "lul", "lullen", "klootzak",
@@ -28,29 +33,39 @@ const SENSITIVE_WORDS = {
     "kloten", "slet", "sletten", "pedofiel", "verkrachting", "verkracht",
     "masturberen", "orgasme", "porno", "cocaïne", "heroïne",
     "klerezooi", "kutzooi", "reet", "stoned",
+    "nikker", "nikkers", "flikker", "flikkers", "mongool", "mongolen",
+    "kutmarokkaan", "kutmarokkanen",
   ],
   de: [
     "scheiße", "scheisse", "arsch", "arschloch", "hure", "huren", "fotze", "ficken",
     "gefickt", "wichser", "hurensohn", "schlampe", "nutte", "pisser", "votze",
     "pädophil", "vergewaltigung", "masturbieren", "orgasmus", "pornografie", "kokain",
     "scheißkerl", "wichsen", "titten", "muschi", "schwanzlutscher",
+    "neger", "kanake", "kanaken", "zigeuner", "schwuchtel", "schwuchteln",
+    "spast", "spasti", "krüppel", "mongo",
   ],
   fr: [
     "merde", "putain", "connard", "connasse", "salope", "pute", "enculé", "enculée",
     "couille", "couilles", "cul", "baise", "violeur", "viol", "pédophile", "masturber",
     "orgasme", "pornographie", "cocaïne",
     "bordel", "branler", "bâtard", "nichons", "chatte",
+    "bougnoule", "bougnoules", "négro", "négros", "youpin", "youpins",
+    "pédé", "pédés", "tarlouze", "mongolien", "mongolienne",
   ],
   es: [
     "mierda", "puta", "puto", "cabrón", "cabrona", "gilipollas", "joder", "coño",
     "pendejo", "verga", "polla", "chingar", "zorra", "violador", "violación",
     "pedófilo", "masturbar", "orgasmo", "pornografía", "cocaína",
     "cojones", "follar", "tetas", "bastardo", "hijueputa",
+    "sudaca", "sudacas", "negrata", "negratas", "maricón", "maricones", "marica",
+    "retrasado", "retrasada", "mongólico", "mongólica",
   ],
   it: [
     "merda", "cazzo", "stronzo", "stronza", "puttana", "troia", "vaffanculo", "fica",
     "minchia", "coglione", "coglioni", "scopare", "stupratore", "stupro", "pedofilo",
     "masturbare", "orgasmo", "pornografia", "cocaina",
     "figa", "tette", "bastardo", "sborra", "cazzone",
+    "negro", "negri", "terrone", "terroni", "frocio", "froci",
+    "mongoloide", "ritardato", "ritardata",
   ],
 };
