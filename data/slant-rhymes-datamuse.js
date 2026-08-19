@@ -1,4 +1,4 @@
-{
+const SLANT_RHYMES_DATAMUSE = {
   "generated": "2026-08-19T13:45:04Z",
   "source": "https://api.datamuse.com/words (rel_nry = near/slant rhyme, rel_rhy = perfect rhyme, used to exclude perfect pairs)",
   "method": "For each of the DB's English words, queried Datamuse rel_nry (near-rhyme, Datamuse's own slant-rhyme relation) and rel_rhy (perfect rhyme). Kept only rel_nry results that are themselves words in the local DB, then dropped any such pair where either word also showed up in the other's rel_rhy (perfect) list, per Datamuse. Pairs are deduplicated and unordered; confirmed_bidirectional means both directions independently surfaced each other via rel_nry.",
@@ -494201,4 +494201,4 @@
       "confirmed_bidirectional": true
     }
   ]
-}
+};

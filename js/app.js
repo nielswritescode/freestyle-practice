@@ -416,12 +416,19 @@
   // pair the combined pool can support (not just `selectedCount` of them —
   // sensitive words are rare, so a smaller ask could exhaust before finding
   // enough of them), then keeps only the pairs that touch a sensitive word.
+  // The curated Datamuse slant-rhyme database only covers English — other
+  // languages fall back to the phonetic heuristic in classifyPair.
+  function slantDbForCurrentLanguage() {
+    if (currentLanguage !== "en" || typeof SLANT_RHYMES_DATAMUSE === "undefined") return null;
+    return SLANT_RHYMES_DATAMUSE.pairs;
+  }
+
   function generateSensitiveOnlyPairs(types, getKey) {
     const blocked = sensitiveWordSets[currentLanguage];
     const sensitiveWords = sensitiveWordsInScope();
     if (!blocked || sensitiveWords.length === 0) return [];
     const pool = activeWordList().concat(sensitiveWords);
-    const abundant = generatePairs(pool, Number.MAX_SAFE_INTEGER, types, getKey);
+    const abundant = generatePairs(pool, Number.MAX_SAFE_INTEGER, types, getKey, slantDbForCurrentLanguage());
     return abundant
       .filter((p) => blocked.has(p.a) || blocked.has(p.b))
       .slice(0, selectedCount)
@@ -1698,7 +1705,7 @@
     const getKey = LANGS[currentLanguage].getKey;
     const pairs = sensitiveWordMode === "only"
       ? generateSensitiveOnlyPairs(types, getKey)
-      : generatePairs(activeWordList(), selectedCount, types, getKey);
+      : generatePairs(activeWordList(), selectedCount, types, getKey, slantDbForCurrentLanguage());
     currentPairs = pairs;
     renderPairs(pairs, selectedCount);
     if (scroll) scrollToResults();

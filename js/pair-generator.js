@@ -30,9 +30,16 @@ function isTrivialContainment(a, b) {
   return a.includes(b) || b.includes(a);
 }
 
-function generatePairs(words, count, allowedTypes, getKey) {
+function generatePairs(words, count, allowedTypes, getKey, slantDb) {
   const groups = buildIndex(words, getKey);
   const groupList = [...groups.values()];
+
+  // When a curated slant-rhyme database is available (currently English
+  // only), it replaces the phonetic heuristic for "slant" — the heuristic
+  // alone produced a lot of pairs that didn't actually read as rhymes,
+  // which is why the toggle was held back pending exactly this data (see
+  // git history: "Archive slant rhyme toggle... quality too poor for now").
+  const useDbSlant = allowedTypes.includes("slant") && slantDb && slantDb.length > 0;
 
   // Build candidate edges
   let edges = [];
@@ -45,12 +52,23 @@ function generatePairs(words, count, allowedTypes, getKey) {
         type = "perfect";
       } else {
         type = classifyPair(gi.key, gj.key);
+        if (type === "slant" && useDbSlant) continue;
       }
       if (type && allowedTypes.includes(type)) {
         edges.push({ i, j, type });
       }
     }
   }
+
+  if (useDbSlant) {
+    const poolWords = new Set(words);
+    for (const { a, b } of slantDb) {
+      if (poolWords.has(a) && poolWords.has(b) && !isTrivialContainment(a, b)) {
+        edges.push({ literal: [a, b], type: "slant" });
+      }
+    }
+  }
+
   edges = shuffle(edges);
 
   const usedWords = new Set();
@@ -69,6 +87,16 @@ function generatePairs(words, count, allowedTypes, getKey) {
       edges = shuffle(edges); // re-shuffle each full pass for variety
     }
     const edge = edges[idx];
+
+    if (edge.literal) {
+      const [a, b] = edge.literal;
+      if (usedWords.has(a) || usedWords.has(b)) { edges.splice(idx, 1); continue; }
+      usedWords.add(a); usedWords.add(b);
+      results.push({ a, b, type: edge.type, sound: "datamuse" });
+      idx++;
+      continue;
+    }
+
     const gi = groupList[edge.i], gj = groupList[edge.j];
 
     if (edge.i === edge.j) {
