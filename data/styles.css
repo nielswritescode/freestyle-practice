@@ -757,6 +757,11 @@ body.metronome-open .wrap{padding-top:190px;}
   align-items:center;
   justify-content:center;
 }
+/* a.btn-ghost (see above) sets display:inline-block with higher specificity
+   than .share-btn alone, which broke centering for the coffee link (the only
+   share-btn that's an <a> rather than a <button>). This compound selector
+   outranks it so the flex centering always wins. */
+a.share-btn.btn-ghost{display:inline-flex;}
 .share-btn svg{
   width:18px;
   height:18px;
