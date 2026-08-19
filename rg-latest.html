@@ -256,6 +256,11 @@
     <div class="metronome-beat" id="metronomeBeat" aria-hidden="true"></div>
     <div class="metronome-bpm-value" id="metronomeBpmValue">120 BPM</div>
     <input type="range" id="metronomeBpmSlider" min="40" max="240" step="1" value="120" aria-label="Beats per minute">
+    <div class="row metronome-volume-row">
+      <span class="label">Volume</span>
+      <input type="range" id="metronomeVolumeSlider" min="0" max="100" step="5" value="70" aria-label="Metronome volume">
+      <span class="range-value" id="metronomeVolumeValue">70%</span>
+    </div>
     <button type="button" class="btn-main" id="metronomeToggleBtn">Start</button>
   </div>
 
