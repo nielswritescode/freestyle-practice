@@ -159,6 +159,11 @@
           <button type="button" class="btn-ghost" id="showMetronomeBtn">Show metronome</button>
         </div>
         <div class="row" style="margin-top:14px;">
+          <div class="label">Metronome volume</div>
+          <input type="range" id="metronomeVolumeSlider" min="0" max="100" step="5" value="70" aria-label="Metronome volume">
+          <span class="range-value" id="metronomeVolumeValue">70%</span>
+        </div>
+        <div class="row" style="margin-top:14px;">
           <div class="label">Sensitive words</div>
           <button type="button" class="pill sensitive-mode-pill" data-sensitive-mode="off">Off</button>
           <button type="button" class="pill sensitive-mode-pill" data-sensitive-mode="on">Filter out</button>
@@ -262,11 +267,6 @@
     <div class="metronome-beat" id="metronomeBeat" aria-hidden="true"></div>
     <div class="metronome-bpm-value" id="metronomeBpmValue">120 BPM</div>
     <input type="range" id="metronomeBpmSlider" min="40" max="240" step="1" value="120" aria-label="Beats per minute">
-    <div class="row metronome-volume-row">
-      <span class="label">Volume</span>
-      <input type="range" id="metronomeVolumeSlider" min="0" max="100" step="5" value="70" aria-label="Metronome volume">
-      <span class="range-value" id="metronomeVolumeValue">70%</span>
-    </div>
     <button type="button" class="btn-main" id="metronomeToggleBtn">Start</button>
   </div>
 

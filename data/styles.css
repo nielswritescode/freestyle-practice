@@ -681,8 +681,6 @@ body.metronome-open .wrap{padding-top:190px;}
   font-variant-numeric:tabular-nums;
 }
 #metronomeBpmSlider{width:min(320px, 80vw);}
-.metronome-volume-row{justify-content:center;}
-#metronomeVolumeSlider{width:min(160px, 45vw);}
 /* Pulses on every beat via tickMetronome() (js/app.js) — a plain color/scale
    flip rather than a keyframe animation, since it needs to reset and
    re-trigger every beat at whatever tempo the BPM slider is set to. */
