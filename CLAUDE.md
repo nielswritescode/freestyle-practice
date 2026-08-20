@@ -36,6 +36,19 @@ This machine runs MATE with `mate-terminal`, and has `wmctrl`/`xrandr` available
 5. Don't set window titles manually — each new session creates its own worktree and renames its own window per the global window-naming convention.
 6. Report which quadrant holds which session (main is always top-left).
 
+## cleanup
+
+When I ask to "cleanup", for every worktree in `git worktree list` other than this checkout:
+
+1. Check whether its Claude session is currently running a command before touching anything — use ListAgents to see peer sessions and their busy/idle status (a worktree being "open"/locked by a live session is not by itself a reason to skip it — busy vs. idle is what matters).
+2. Skip any worktree whose session shows "busy" — leave it and its session alone, and report that it was skipped and why.
+3. For every idle worktree, merge its branch into `main`. Resolve conflicts by hand when they're simple/additive (e.g. two branches both appending a section to the same file); stop and ask if a conflict looks substantive rather than two additive changes landing near the same spot.
+4. After a successful merge, remove the worktree (`git worktree remove`) and delete its now-fully-merged branch (`git branch -d`).
+5. Close that worktree's idle Claude session — find its process (the worktree's git lock file names the PID; spawntrees also launches each session as its terminal's sole command, so ending the process closes the terminal window too) and terminate it.
+6. Report what was merged, what was skipped (busy sessions), and which sessions were closed.
+
+This is standing authorization to merge and close *idle* worktree sessions without asking each time — busy sessions are always left alone.
+
 # Commands
 
-- cleanup - merge open worktrees if they are done, then remove the worktree
+- cleanup - see the cleanup section above
