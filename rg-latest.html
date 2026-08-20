@@ -130,112 +130,126 @@
     <details class="panel collapsible-panel" id="advancedDetails">
       <summary>Advanced</summary>
       <div class="collapsible-body">
-        <div class="row">
-          <div class="label">Practice timer</div>
-          <button type="button" class="btn-ghost" id="showTimerBtn">Show timer</button>
-        </div>
-        <div class="timer-options-group" id="timerOptionsGroup" hidden>
-          <div class="row" style="margin-top:14px;">
-            <div class="label">Timer mode</div>
-            <button type="button" class="pill timer-mode-pill active" data-timer-mode="simple">Simple Timer</button>
-            <button type="button" class="pill timer-mode-pill" data-timer-mode="multi">Multi Timer</button>
+        <div class="advanced-section">
+          <div class="advanced-section-title">Practice tools</div>
+          <div class="row">
+            <div class="label">Practice timer</div>
+            <button type="button" class="btn-ghost" id="showTimerBtn">Show timer</button>
           </div>
-          <div class="row" style="margin-top:14px;">
-            <div class="label">Timer sound</div>
-            <button type="button" class="pill timer-sound-pill active" data-timer-sound="chime">Chime</button>
-            <button type="button" class="pill timer-sound-pill" data-timer-sound="bell">Bell</button>
-            <button type="button" class="pill timer-sound-pill" data-timer-sound="beep">Beep</button>
-            <button type="button" class="btn-ghost" id="timerSoundPreviewBtn">Preview</button>
-          </div>
-          <div class="row" style="margin-top:14px;">
-            <div class="label">Timer volume</div>
-            <input type="range" id="timerVolumeSlider" min="0" max="100" step="5" value="70">
-            <span class="range-value" id="timerVolumeValue">70%</span>
-          </div>
-          <div class="row timer-duration-edit-row" style="margin-top:14px;">
-            <div class="label">Timer durations</div>
-            <button type="button" class="pill timer-duration-unit-pill active" data-timer-duration-unit="minutes">Minutes</button>
-            <button type="button" class="pill timer-duration-unit-pill" data-timer-duration-unit="seconds">Seconds</button>
-            <input type="number" class="timer-duration-input" data-duration-index="0" min="1" max="180" value="5">
-            <input type="number" class="timer-duration-input" data-duration-index="1" min="1" max="180" value="10">
-            <input type="number" class="timer-duration-input" data-duration-index="2" min="1" max="180" value="15">
-            <input type="number" class="timer-duration-input" data-duration-index="3" min="1" max="180" value="20">
-            <input type="number" class="timer-duration-input" data-duration-index="4" min="1" max="180" value="25">
-            <input type="number" class="timer-duration-input" data-duration-index="5" min="1" max="180" value="30">
-          </div>
-        </div>
-        <div class="row" style="margin-top:14px;">
-          <div class="label">Practice metronome</div>
-          <button type="button" class="btn-ghost" id="showMetronomeBtn">Show metronome</button>
-        </div>
-        <div class="row" style="margin-top:14px;">
-          <div class="label">Metronome volume</div>
-          <input type="range" id="metronomeVolumeSlider" min="0" max="100" step="5" value="70" aria-label="Metronome volume">
-          <span class="range-value" id="metronomeVolumeValue">70%</span>
-        </div>
-        <div class="row" style="margin-top:14px;">
-          <div class="label">Sensitive words</div>
-          <button type="button" class="pill sensitive-mode-pill" data-sensitive-mode="off">Off</button>
-          <button type="button" class="pill sensitive-mode-pill" data-sensitive-mode="on">Filter out</button>
-          <button type="button" class="pill sensitive-mode-pill" data-sensitive-mode="only">Only</button>
-        </div>
-        <div class="row" style="margin-top:14px;">
-          <div class="label">Syllables per word</div>
-          <div class="diff-slider syl-slider" id="sylSlider">
-            <div class="diff-slider-track syl-slider-track">
-              <div class="syl-slider-fill" id="sylSliderFill"></div>
+          <div class="timer-options-group" id="timerOptionsGroup" hidden>
+            <div class="row" style="margin-top:14px;">
+              <div class="label">Timer mode</div>
+              <button type="button" class="pill timer-mode-pill active" data-timer-mode="simple">Simple Timer</button>
+              <button type="button" class="pill timer-mode-pill" data-timer-mode="multi">Multi Timer</button>
             </div>
-            <button type="button" class="diff-handle" id="sylHandleMin" role="slider" aria-label="Minimum syllables" aria-valuemin="1" aria-valuemax="6"></button>
-            <button type="button" class="diff-handle" id="sylHandleMax" role="slider" aria-label="Maximum syllables" aria-valuemin="1" aria-valuemax="6"></button>
+            <div class="row" style="margin-top:14px;">
+              <div class="label">Timer sound</div>
+              <button type="button" class="pill timer-sound-pill active" data-timer-sound="chime">Chime</button>
+              <button type="button" class="pill timer-sound-pill" data-timer-sound="bell">Bell</button>
+              <button type="button" class="pill timer-sound-pill" data-timer-sound="beep">Beep</button>
+              <button type="button" class="btn-ghost" id="timerSoundPreviewBtn">Preview</button>
+            </div>
+            <div class="row" style="margin-top:14px;">
+              <div class="label">Timer volume</div>
+              <input type="range" id="timerVolumeSlider" min="0" max="100" step="5" value="70">
+              <span class="range-value" id="timerVolumeValue">70%</span>
+            </div>
+            <div class="row timer-duration-edit-row" style="margin-top:14px;">
+              <div class="label">Timer durations</div>
+              <button type="button" class="pill timer-duration-unit-pill active" data-timer-duration-unit="minutes">Minutes</button>
+              <button type="button" class="pill timer-duration-unit-pill" data-timer-duration-unit="seconds">Seconds</button>
+              <input type="number" class="timer-duration-input" data-duration-index="0" min="1" max="180" value="5">
+              <input type="number" class="timer-duration-input" data-duration-index="1" min="1" max="180" value="10">
+              <input type="number" class="timer-duration-input" data-duration-index="2" min="1" max="180" value="15">
+              <input type="number" class="timer-duration-input" data-duration-index="3" min="1" max="180" value="20">
+              <input type="number" class="timer-duration-input" data-duration-index="4" min="1" max="180" value="25">
+              <input type="number" class="timer-duration-input" data-duration-index="5" min="1" max="180" value="30">
+            </div>
           </div>
-          <span class="range-value" id="sylRangeValue">Any</span>
+          <div class="row" style="margin-top:14px;">
+            <div class="label">Practice metronome</div>
+            <button type="button" class="btn-ghost" id="showMetronomeBtn">Show metronome</button>
+          </div>
+          <div class="row" style="margin-top:14px;">
+            <div class="label">Metronome volume</div>
+            <input type="range" id="metronomeVolumeSlider" min="0" max="100" step="5" value="70" aria-label="Metronome volume">
+            <span class="range-value" id="metronomeVolumeValue">70%</span>
+          </div>
         </div>
-        <div class="row" style="margin-top:14px;">
-          <div class="label">Reveal mode</div>
-          <button type="button" class="pill reveal-mode-pill active" data-reveal-mode="pairs">Pairs</button>
-          <button type="button" class="pill reveal-mode-pill" data-reveal-mode="words">Single words</button>
-          <button type="button" class="pill reveal-mode-pill" data-reveal-mode="syllable">Single syllable</button>
-          <button type="button" class="pill reveal-mode-pill" data-reveal-mode="letter">Single letter</button>
-          <button type="button" class="pill reveal-mode-pill" data-reveal-mode="family">Rhyme family</button>
+        <div class="advanced-section">
+          <div class="advanced-section-title">Word filtering</div>
+          <div class="row">
+            <div class="label">Sensitive words</div>
+            <button type="button" class="pill sensitive-mode-pill" data-sensitive-mode="off">Off</button>
+            <button type="button" class="pill sensitive-mode-pill" data-sensitive-mode="on">Filter out</button>
+            <button type="button" class="pill sensitive-mode-pill" data-sensitive-mode="only">Only</button>
+          </div>
+          <div class="row" style="margin-top:14px;">
+            <div class="label">Syllables per word</div>
+            <div class="diff-slider syl-slider" id="sylSlider">
+              <div class="diff-slider-track syl-slider-track">
+                <div class="syl-slider-fill" id="sylSliderFill"></div>
+              </div>
+              <button type="button" class="diff-handle" id="sylHandleMin" role="slider" aria-label="Minimum syllables" aria-valuemin="1" aria-valuemax="6"></button>
+              <button type="button" class="diff-handle" id="sylHandleMax" role="slider" aria-label="Maximum syllables" aria-valuemin="1" aria-valuemax="6"></button>
+            </div>
+            <span class="range-value" id="sylRangeValue">Any</span>
+          </div>
         </div>
-        <div class="row" style="margin-top:14px;">
-          <label class="checkbox-row">
-            <input type="checkbox" id="autoRefreshToggle">
-            <span>Auto-refresh rhymes every</span>
-          </label>
-          <input type="number" id="autoRefreshSeconds" min="5" max="3600" value="60">
-          <span class="inline-unit">seconds</span>
+        <div class="advanced-section">
+          <div class="advanced-section-title">Practice display</div>
+          <div class="row">
+            <div class="label">Reveal mode</div>
+            <button type="button" class="pill reveal-mode-pill active" data-reveal-mode="pairs">Pairs</button>
+            <button type="button" class="pill reveal-mode-pill" data-reveal-mode="words">Single words</button>
+            <button type="button" class="pill reveal-mode-pill" data-reveal-mode="syllable">Single syllable</button>
+            <button type="button" class="pill reveal-mode-pill" data-reveal-mode="letter">Single letter</button>
+            <button type="button" class="pill reveal-mode-pill" data-reveal-mode="family">Rhyme family</button>
+          </div>
+          <div class="row" style="margin-top:14px;">
+            <label class="checkbox-row">
+              <input type="checkbox" id="autoRefreshToggle">
+              <span>Auto-refresh rhymes every</span>
+            </label>
+            <input type="number" id="autoRefreshSeconds" min="5" max="3600" value="60">
+            <span class="inline-unit">seconds</span>
+          </div>
+          <div class="row" style="margin-top:14px;">
+            <div class="label">Definitions</div>
+            <button class="pill def-style-pill" data-def-style="links">Links</button>
+            <button class="pill def-style-pill" data-def-style="simple">Simple Definition</button>
+            <button class="pill def-style-pill" data-def-style="full">Full definition</button>
+            <button class="pill def-style-pill" data-def-style="delete">Word deletion</button>
+          </div>
+          <div class="row" id="showAllDefsRow" style="margin-top:10px;">
+            <button class="btn-ghost" id="showAllDefsBtn">Show all definitions</button>
+          </div>
         </div>
-        <div class="row" style="margin-top:14px;">
-          <div class="label">Definitions</div>
-          <button class="pill def-style-pill" data-def-style="links">Links</button>
-          <button class="pill def-style-pill" data-def-style="simple">Simple Definition</button>
-          <button class="pill def-style-pill" data-def-style="full">Full definition</button>
-          <button class="pill def-style-pill" data-def-style="delete">Word deletion</button>
+        <div class="advanced-section">
+          <div class="advanced-section-title">Word list</div>
+          <div class="row">
+            <div class="label">Deleted words</div>
+            <button class="btn-ghost" id="downloadDeletedBtn">Download deleted words</button>
+            <button class="btn-ghost" id="clearDeletedBtn">Clear deleted words</button>
+          </div>
+          <div class="status-msg" id="deletedStatus">No words deleted yet.</div>
+          <div class="row csv-row" style="margin-top:14px;">
+            <div class="label" id="wordListLabel">Word list — 11,000 built in, or add your own [WIP]</div>
+            <input type="file" id="csvInput" accept=".csv,text/csv">
+            <button class="btn-ghost" id="csvAddBtn">Add to library</button>
+            <button class="btn-ghost" id="csvOnlyBtn">Use only these</button>
+            <button class="btn-ghost" id="csvResetBtn">Reset to built-in</button>
+            <button class="btn-ghost" id="csvExampleBtn">Download example CSV</button>
+          </div>
+          <div class="status-msg" id="csvStatus">Using the built-in 11,000-word library.</div>
         </div>
-        <div class="row" id="showAllDefsRow" style="margin-top:10px;">
-          <button class="btn-ghost" id="showAllDefsBtn">Show all definitions</button>
+        <div class="advanced-section">
+          <div class="advanced-section-title">Reset</div>
+          <div class="row">
+            <button class="btn-ghost" id="resetSettingsBtn">Reset default settings</button>
+          </div>
+          <div class="status-msg" id="resetSettingsStatus"></div>
         </div>
-        <div class="row" style="margin-top:14px;">
-          <div class="label">Deleted words</div>
-          <button class="btn-ghost" id="downloadDeletedBtn">Download deleted words</button>
-          <button class="btn-ghost" id="clearDeletedBtn">Clear deleted words</button>
-        </div>
-        <div class="status-msg" id="deletedStatus">No words deleted yet.</div>
-        <div class="row csv-row" style="margin-top:14px;">
-          <div class="label" id="wordListLabel">Word list — 11,000 built in, or add your own</div>
-          <input type="file" id="csvInput" accept=".csv,text/csv">
-          <button class="btn-ghost" id="csvAddBtn">Add to library</button>
-          <button class="btn-ghost" id="csvOnlyBtn">Use only these</button>
-          <button class="btn-ghost" id="csvResetBtn">Reset to built-in</button>
-          <button class="btn-ghost" id="csvExampleBtn">Download example CSV</button>
-        </div>
-        <div class="status-msg" id="csvStatus">Using the built-in 11,000-word library.</div>
-        <div class="row" style="margin-top:14px;">
-          <div class="label">Reset</div>
-          <button class="btn-ghost" id="resetSettingsBtn">Reset default settings</button>
-        </div>
-        <div class="status-msg" id="resetSettingsStatus"></div>
       </div>
     </details>
 
