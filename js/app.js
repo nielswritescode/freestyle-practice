@@ -24,12 +24,12 @@
   // 3,000-word one (frequency-ranked, real IPA rhymes, no hand-curated
   // rhyme-family balancing — see data/words-data-{de,fr,es}.js).
   const LANG_META = {
-    en: { wordListLabel: "Word list — 11,000 built in, or add your own", builtInCount: "11,000" },
-    nl: { wordListLabel: "Woordenlijst — 12.000 ingebouwd, of voeg je eigen woorden toe", builtInCount: "12,000" },
-    de: { wordListLabel: "Wortliste — 3.000 integriert, oder füge eigene hinzu", builtInCount: "3,000" },
-    fr: { wordListLabel: "Liste de mots — 3 000 intégrés, ou ajoutez les vôtres", builtInCount: "3,000" },
-    es: { wordListLabel: "Lista de palabras — 3000 incorporadas, o añade las tuyas", builtInCount: "3,000" },
-    it: { wordListLabel: "Lista di parole — 3.000 integrate, o aggiungi le tue", builtInCount: "3,000" },
+    en: { wordListLabel: "Word list — 11,000 built in, or add your own [WIP]", builtInCount: "11,000" },
+    nl: { wordListLabel: "Woordenlijst — 12.000 ingebouwd, of voeg je eigen woorden toe [WIP]", builtInCount: "12,000" },
+    de: { wordListLabel: "Wortliste — 3.000 integriert, oder füge eigene hinzu [WIP]", builtInCount: "3,000" },
+    fr: { wordListLabel: "Liste de mots — 3 000 intégrés, ou ajoutez les vôtres [WIP]", builtInCount: "3,000" },
+    es: { wordListLabel: "Lista de palabras — 3000 incorporadas, o añade las tuyas [WIP]", builtInCount: "3,000" },
+    it: { wordListLabel: "Lista di parole — 3.000 integrate, o aggiungi le tue [WIP]", builtInCount: "3,000" },
   };
   // Only English has a rule-based spelling-to-sound fallback (js/phonetics-en.js);
   // every other language depends entirely on its built-in pronunciation
