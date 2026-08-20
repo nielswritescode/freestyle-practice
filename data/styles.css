@@ -358,6 +358,8 @@ input[type="range"]:focus-visible{outline:2px solid var(--accent); outline-offse
 .player-embed[hidden]{display:none;}
 #showAllDefsRow[hidden]{display:none;}
 #slantToggleRow[hidden]{display:none;}
+#slantRatioRow[hidden]{display:none;}
+#slantMinScoreRow[hidden]{display:none;}
 
 /* Practice timer — always a fixed bottom bar, on every screen size (not
    gated behind a max-width media query — that split turned out not to

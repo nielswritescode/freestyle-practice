@@ -77,6 +77,15 @@
   let defStyle = "links"; // 'links' | 'simple' | 'full' | 'delete'
   let activeTypes = new Set(["perfect"]); // near still hidden; slant toggled via #slantToggle below
 
+  // Only meaningful while "slant" is active (see slantRatioRow/
+  // slantMinScoreRow): slantRatio is the target % of results drawn from the
+  // curated slant DB vs the phonetic "perfect" pool; slantMinScorePos is a
+  // 0-100 slider position mapped (log-scale, see slantScoreFromPos) onto the
+  // Datamuse rel_nry score range actually present in the DB, so position 0
+  // always means "the weakest score in the database", not a fixed number.
+  let slantRatio = 50;
+  let slantMinScorePos = 0;
+
   // Upper handle maxes out at "Any" (no cap) rather than literally capping
   // at 6 — most words are well under that anyway, so it reads as "off" at
   // the top. The lower handle has no such escape hatch: 1 already is the
@@ -159,6 +168,12 @@
       minSyllables = stored.minSyllables;
     }
     if (stored.slantEnabled === true) activeTypes.add("slant");
+    if (typeof stored.slantRatio === "number" && stored.slantRatio >= 0 && stored.slantRatio <= 100) {
+      slantRatio = stored.slantRatio;
+    }
+    if (typeof stored.slantMinScorePos === "number" && stored.slantMinScorePos >= 0 && stored.slantMinScorePos <= 100) {
+      slantMinScorePos = stored.slantMinScorePos;
+    }
     if (SENSITIVE_MODES.includes(stored.sensitiveWordMode)) sensitiveWordMode = stored.sensitiveWordMode;
     if (VALID_THEMES.includes(stored.theme)) currentTheme = stored.theme;
     if (TIMER_SOUNDS.includes(stored.timerSound)) timerSound = stored.timerSound;
@@ -198,6 +213,8 @@
         autoRefreshSeconds,
         defStyle,
         slantEnabled: activeTypes.has("slant"),
+        slantRatio,
+        slantMinScorePos,
         minSyllables,
         maxSyllables,
         sensitiveWordMode,
@@ -236,6 +253,12 @@
   const typePills = document.querySelectorAll(".type-pill");
   const slantToggle = document.getElementById("slantToggle");
   const slantToggleRow = document.getElementById("slantToggleRow");
+  const slantRatioRow = document.getElementById("slantRatioRow");
+  const slantRatioSlider = document.getElementById("slantRatioSlider");
+  const slantRatioValue = document.getElementById("slantRatioValue");
+  const slantMinScoreRow = document.getElementById("slantMinScoreRow");
+  const slantMinScoreSlider = document.getElementById("slantMinScoreSlider");
+  const slantMinScoreValue = document.getElementById("slantMinScoreValue");
   const csvInput = document.getElementById("csvInput");
   const csvAddBtn = document.getElementById("csvAddBtn");
   const csvOnlyBtn = document.getElementById("csvOnlyBtn");
@@ -417,11 +440,52 @@
   // pair the combined pool can support (not just `selectedCount` of them —
   // sensitive words are rare, so a smaller ask could exhaust before finding
   // enough of them), then keeps only the pairs that touch a sensitive word.
+  // Datamuse rel_nry score range actually present in the curated slant DB —
+  // sizes the minimum-strength slider. Computed once: scanning 70k+ pairs on
+  // every generate() would be wasteful for a number that never changes.
+  const SLANT_SCORE_BOUNDS = (() => {
+    if (typeof SLANT_RHYMES_DATAMUSE === "undefined") return null;
+    let min = Infinity, max = -Infinity;
+    for (const p of SLANT_RHYMES_DATAMUSE.pairs) {
+      for (const s of [p.score_a, p.score_b]) {
+        if (typeof s === "number") {
+          if (s < min) min = s;
+          if (s > max) max = s;
+        }
+      }
+    }
+    return min <= max ? { min, max } : null;
+  })();
+
+  // Maps the 0-100 slider position to an actual score on a log scale —
+  // scores span roughly 3 to 130,000, so a linear slider would waste nearly
+  // all of its range on thresholds nobody would ever want.
+  function slantScoreFromPos(pos) {
+    if (!SLANT_SCORE_BOUNDS) return 0;
+    const { min, max } = SLANT_SCORE_BOUNDS;
+    if (max <= min) return min;
+    return Math.round(min * Math.pow(max / min, pos / 100));
+  }
+
+  // The stronger of a pair's two directional scores — either can be null
+  // (Datamuse doesn't surface every relation both ways), so a pair with
+  // neither direction scored reads as having no evidence at all, which
+  // excludes it even at the slider's lowest ("weakest score in the DB")
+  // position.
+  function pairSlantScore(p) {
+    const a = typeof p.score_a === "number" ? p.score_a : -Infinity;
+    const b = typeof p.score_b === "number" ? p.score_b : -Infinity;
+    return Math.max(a, b);
+  }
+
   // The curated Datamuse slant-rhyme database only covers English — other
-  // languages fall back to the phonetic heuristic in classifyPair.
+  // languages fall back to the phonetic heuristic in classifyPair. Also
+  // applies the minimum-strength slider, so both call sites below (and the
+  // generate() call site) get the current threshold for free.
   function slantDbForCurrentLanguage() {
     if (currentLanguage !== "en" || typeof SLANT_RHYMES_DATAMUSE === "undefined") return null;
-    return SLANT_RHYMES_DATAMUSE.pairs;
+    const threshold = slantScoreFromPos(slantMinScorePos);
+    return SLANT_RHYMES_DATAMUSE.pairs.filter((p) => pairSlantScore(p) >= threshold);
   }
 
   function generateSensitiveOnlyPairs(types, getKey) {
@@ -429,7 +493,7 @@
     const sensitiveWords = sensitiveWordsInScope();
     if (!blocked || sensitiveWords.length === 0) return [];
     const pool = activeWordList().concat(sensitiveWords);
-    const abundant = generatePairs(pool, Number.MAX_SAFE_INTEGER, types, getKey, slantDbForCurrentLanguage());
+    const abundant = generatePairs(pool, Number.MAX_SAFE_INTEGER, types, getKey, slantDbForCurrentLanguage(), slantRatio);
     return abundant
       .filter((p) => blocked.has(p.a) || blocked.has(p.b))
       .slice(0, selectedCount)
@@ -508,6 +572,25 @@
     // fall back to the low-quality phonetic heuristic, so hide the toggle
     // rather than offer a feature that doesn't hold up.
     slantToggleRow.hidden = !slantDbForCurrentLanguage();
+    updateSlantOptionsUI();
+  }
+
+  // The ratio/min-score sliders only make sense once slant rhymes are both
+  // supported (curated DB exists for this language) and actually enabled.
+  function updateSlantOptionsUI() {
+    const show = activeTypes.has("slant") && !!slantDbForCurrentLanguage();
+    slantRatioRow.hidden = !show;
+    slantMinScoreRow.hidden = !show;
+  }
+
+  function updateSlantRatioUI() {
+    slantRatioSlider.value = String(slantRatio);
+    slantRatioValue.textContent = `${slantRatio}% slant`;
+  }
+
+  function updateSlantMinScoreUI() {
+    slantMinScoreSlider.value = String(slantMinScorePos);
+    slantMinScoreValue.textContent = `≥ ${slantScoreFromPos(slantMinScorePos)}`;
   }
 
   langPills.forEach((btn) => {
@@ -559,9 +642,22 @@
     if (slantToggle.checked) activeTypes.add("slant");
     else activeTypes.delete("slant");
     setTypePillsUI(); // keep the hidden type-pill row's state in sync too
+    updateSlantOptionsUI();
     saveSettings();
     generate();
   });
+
+  slantRatioSlider.addEventListener("input", () => {
+    slantRatio = clamp(parseInt(slantRatioSlider.value, 10), 0, 100);
+    updateSlantRatioUI();
+  });
+  slantRatioSlider.addEventListener("change", () => { saveSettings(); generate(); });
+
+  slantMinScoreSlider.addEventListener("input", () => {
+    slantMinScorePos = clamp(parseInt(slantMinScoreSlider.value, 10), 0, 100);
+    updateSlantMinScoreUI();
+  });
+  slantMinScoreSlider.addEventListener("change", () => { saveSettings(); generate(); });
 
   function clamp(v, lo, hi) { return Math.min(hi, Math.max(lo, v)); }
 
@@ -1713,7 +1809,7 @@
     const getKey = LANGS[currentLanguage].getKey;
     const pairs = sensitiveWordMode === "only"
       ? generateSensitiveOnlyPairs(types, getKey)
-      : generatePairs(activeWordList(), selectedCount, types, getKey, slantDbForCurrentLanguage());
+      : generatePairs(activeWordList(), selectedCount, types, getKey, slantDbForCurrentLanguage(), slantRatio);
     currentPairs = pairs;
     renderPairs(pairs, selectedCount);
     if (scroll) scrollToResults();
@@ -1863,6 +1959,8 @@
   setCountPillsUI();
   slantToggle.checked = activeTypes.has("slant");
   setTypePillsUI();
+  updateSlantRatioUI();
+  updateSlantMinScoreUI();
   renderDiffUI();
   renderSyllableUI();
   updateSensitiveModeUI();

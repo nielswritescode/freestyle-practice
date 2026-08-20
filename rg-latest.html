@@ -105,6 +105,16 @@
           <span>Include slant rhymes [WIP]</span>
         </label>
       </div>
+      <div class="row" id="slantRatioRow" hidden>
+        <div class="label">Slant / perfect mix</div>
+        <input type="range" id="slantRatioSlider" min="0" max="100" step="5" value="50" aria-label="Slant vs perfect rhyme ratio">
+        <span class="range-value" id="slantRatioValue">50% slant</span>
+      </div>
+      <div class="row" id="slantMinScoreRow" hidden>
+        <div class="label">Minimum slant strength</div>
+        <input type="range" id="slantMinScoreSlider" min="0" max="100" step="1" value="0" aria-label="Minimum Datamuse slant-rhyme score">
+        <span class="range-value" id="slantMinScoreValue">&ge; 0</span>
+      </div>
       <div class="row">
         <label class="checkbox-row">
           <input type="checkbox" id="playlistToggle" checked>

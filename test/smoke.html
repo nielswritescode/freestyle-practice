@@ -154,6 +154,83 @@ test("slant rhyme toggle is only shown for languages with curated slant data", a
   assertEqual(displayOf(doc.getElementById("slantToggleRow")), "flex", "slant toggle should reappear back on English");
 });
 
+// ---- slant ratio / min-score sliders: only meaningful once slant is on ----
+
+test("slant ratio and min-score sliders only show once slant rhymes are enabled", async (doc) => {
+  assertEqual(displayOf(doc.getElementById("slantRatioRow")), "none", "ratio slider should start hidden");
+  assertEqual(displayOf(doc.getElementById("slantMinScoreRow")), "none", "min-score slider should start hidden");
+
+  doc.getElementById("slantToggle").click();
+  assertEqual(displayOf(doc.getElementById("slantRatioRow")), "flex", "ratio slider should show once slant is enabled");
+  assertEqual(displayOf(doc.getElementById("slantMinScoreRow")), "flex", "min-score slider should show once slant is enabled");
+
+  doc.querySelector('.lang-pill[data-lang="nl"]').click();
+  assertEqual(displayOf(doc.getElementById("slantRatioRow")), "none", "sliders should hide for a language without curated slant data");
+
+  doc.querySelector('.lang-pill[data-lang="en"]').click();
+  assertEqual(displayOf(doc.getElementById("slantRatioRow")), "flex", "sliders should reappear on English since slant is still enabled");
+
+  doc.getElementById("slantToggle").click();
+  assertEqual(displayOf(doc.getElementById("slantRatioRow")), "none", "ratio slider should hide again once slant is disabled");
+  assertEqual(displayOf(doc.getElementById("slantMinScoreRow")), "none", "min-score slider should hide again once slant is disabled");
+});
+
+test("slant ratio slider actually shifts the perfect/slant mix of generated pairs", async (doc) => {
+  doc.getElementById("slantToggle").click();
+  const typesOf = () => [...doc.querySelectorAll(".pair-card .type-chip")].map((el) => el.textContent);
+
+  const ratioSlider = doc.getElementById("slantRatioSlider");
+  ratioSlider.value = "0";
+  ratioSlider.dispatchEvent(new Event("input", { bubbles: true }));
+  assertEqual(doc.getElementById("slantRatioValue").textContent, "0% slant", "label should reflect 0%");
+  ratioSlider.dispatchEvent(new Event("change", { bubbles: true }));
+  assert(typesOf().every((t) => t === "perfect"), "ratio 0 should produce only perfect pairs, got " + typesOf().join(","));
+
+  ratioSlider.value = "100";
+  ratioSlider.dispatchEvent(new Event("input", { bubbles: true }));
+  assertEqual(doc.getElementById("slantRatioValue").textContent, "100% slant", "label should reflect 100%");
+  ratioSlider.dispatchEvent(new Event("change", { bubbles: true }));
+  assert(typesOf().every((t) => t === "slant"), "ratio 100 should produce only slant pairs, got " + typesOf().join(","));
+});
+
+test("slant min-score slider persists and only keeps pairs meeting the threshold", async (doc, win) => {
+  doc.getElementById("slantToggle").click();
+  doc.getElementById("slantRatioSlider").value = "100";
+  doc.getElementById("slantRatioSlider").dispatchEvent(new Event("change", { bubbles: true }));
+
+  const slider = doc.getElementById("slantMinScoreSlider");
+  assertEqual(doc.getElementById("slantMinScoreValue").textContent, "≥ 3", "should default to the DB's lowest real score");
+
+  slider.value = "80";
+  slider.dispatchEvent(new Event("input", { bubbles: true }));
+  const label = doc.getElementById("slantMinScoreValue").textContent;
+  const threshold = Number(label.replace("≥ ", ""));
+  assert(threshold > 3, "raising the slider should raise the displayed threshold");
+  slider.dispatchEvent(new Event("change", { bubbles: true }));
+
+  // A tight threshold can shrink the filtered slant pool below the
+  // requested count, in which case the ratio logic correctly falls back to
+  // filling the rest from perfect rhymes rather than under-delivering — so
+  // only the slant-typed cards need to honor the score threshold here.
+  const slantPairs = [...doc.querySelectorAll(".pair-card")]
+    .filter((card) => card.querySelector(".type-chip").textContent === "slant")
+    .map((card) => [...card.querySelectorAll(".word")].map((el) => el.textContent));
+  assert(slantPairs.length > 0, "expected at least one slant pair even at a high threshold");
+  const byPair = win.eval("Object.fromEntries(SLANT_RHYMES_DATAMUSE.pairs.map(p => [p.a + '|' + p.b, Math.max(p.score_a ?? -Infinity, p.score_b ?? -Infinity)]))");
+  for (const [a, b] of slantPairs) {
+    const score = byPair[a + "|" + b] ?? byPair[b + "|" + a];
+    assert(score !== undefined, `${a}/${b} should be a known slant pair`);
+    assert(score >= threshold, `${a}/${b} scored ${score}, below the ${threshold} threshold`);
+  }
+
+  const fresh = await loadFreshApp();
+  try {
+    assertEqual(fresh.doc.getElementById("slantMinScoreSlider").value, "80", "min-score slider position should persist across a reload");
+  } finally {
+    fresh.iframe.remove();
+  }
+});
+
 // ---- reveal modes mask content correctly ----
 
 test("reveal mode letter/family/syllable never leak the full word", async (doc) => {
