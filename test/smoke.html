@@ -300,6 +300,27 @@ test("timer: multi mode builds a sequence, Return undoes, Loop toggles", async (
   assert(doc.getElementById("timerLoopBtn").classList.contains("active"), "loop button should be active after click");
 });
 
+test("timer: loop enabled in multi mode must not leak into simple mode", async (doc) => {
+  doc.getElementById("advancedDetails").open = true;
+  doc.querySelector('.timer-duration-unit-pill[data-timer-duration-unit="seconds"]').click();
+  const inputs = doc.querySelectorAll(".timer-duration-input");
+  inputs[0].value = "1";
+  inputs[0].dispatchEvent(new Event("change", { bubbles: true }));
+
+  doc.getElementById("showTimerBtn").click();
+  doc.querySelector('.timer-mode-pill[data-timer-mode="multi"]').click();
+  doc.getElementById("timerLoopBtn").click();
+  assert(doc.getElementById("timerLoopBtn").classList.contains("active"), "loop should be on after enabling it in multi mode");
+
+  doc.querySelector('.timer-mode-pill[data-timer-mode="simple"]').click();
+  doc.querySelector('.timer-duration-btn[data-minutes="1"]').click();
+  assertEqual(doc.getElementById("timerCountdown").textContent, "0:01");
+
+  await sleep(1300); // let the 1s countdown actually complete
+  assertEqual(displayOf(doc.getElementById("timerSetup")), "flex", "simple timer should stop after finishing, not loop back to running");
+  assertEqual(displayOf(doc.getElementById("timerRunning")), "none", "running view should hide once the un-looped simple timer finishes");
+});
+
 test("timer durations are editable, apply live, and persist", async (doc) => {
   doc.getElementById("advancedDetails").open = true;
   const inputs = doc.querySelectorAll(".timer-duration-input");
