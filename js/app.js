@@ -70,6 +70,9 @@
   let customCountActive = false;
   let playlistVisible = true;
   let playlistSource = "youtube";
+  let localBeatIndex = 0;
+  let localLoop = true;
+  let localVolume = 0.7;
   let guidelinesOpen = true;
   let advancedOpen = false;
   let autoRefreshEnabled = false;
@@ -145,7 +148,19 @@
     }
     if (typeof stored.customCountActive === "boolean") customCountActive = stored.customCountActive;
     if (typeof stored.playlistVisible === "boolean") playlistVisible = stored.playlistVisible;
-    if (stored.playlistSource === "spotify" || stored.playlistSource === "youtube") playlistSource = stored.playlistSource;
+    if (["spotify", "youtube", "local"].includes(stored.playlistSource)) playlistSource = stored.playlistSource;
+    if (
+      typeof stored.localBeatIndex === "number" &&
+      Number.isInteger(stored.localBeatIndex) &&
+      stored.localBeatIndex >= 0 &&
+      stored.localBeatIndex < LOCAL_BEATS.length
+    ) {
+      localBeatIndex = stored.localBeatIndex;
+    }
+    if (typeof stored.localLoop === "boolean") localLoop = stored.localLoop;
+    if (typeof stored.localVolume === "number" && stored.localVolume >= 0 && stored.localVolume <= 1) {
+      localVolume = stored.localVolume;
+    }
     if (typeof stored.guidelinesOpen === "boolean") guidelinesOpen = stored.guidelinesOpen;
     if (typeof stored.advancedOpen === "boolean") advancedOpen = stored.advancedOpen;
     if (typeof stored.autoRefreshEnabled === "boolean") autoRefreshEnabled = stored.autoRefreshEnabled;
@@ -207,6 +222,9 @@
         customCountActive,
         playlistVisible: playlistToggle.checked,
         playlistSource: playlistSourceSelect.value,
+        localBeatIndex,
+        localLoop,
+        localVolume,
         guidelinesOpen: guidelinesDetails.open,
         advancedOpen: advancedDetails.open,
         autoRefreshEnabled: autoRefreshToggle.checked,
@@ -272,6 +290,15 @@
   const playlistSourceSelect = document.getElementById("playlistSourceSelect");
   const spotifyEmbed = document.getElementById("spotifyEmbed");
   const youtubeEmbed = document.getElementById("youtubeEmbed");
+  const localPlayer = document.getElementById("localPlayer");
+  const localPlayerTrack = document.getElementById("localPlayerTrack");
+  const localPlayerPrevBtn = document.getElementById("localPlayerPrevBtn");
+  const localPlayerPlayBtn = document.getElementById("localPlayerPlayBtn");
+  const localPlayerNextBtn = document.getElementById("localPlayerNextBtn");
+  const localPlayerLoopBtn = document.getElementById("localPlayerLoopBtn");
+  const localPlayerVolumeSlider = document.getElementById("localPlayerVolumeSlider");
+  const localPlayerVolumeValue = document.getElementById("localPlayerVolumeValue");
+  const localPlayerAudio = document.getElementById("localPlayerAudio");
   const guidelinesDetails = document.getElementById("guidelinesDetails");
   const advancedDetails = document.getElementById("advancedDetails");
   const revealModePills = document.querySelectorAll(".reveal-mode-pill");
@@ -1871,8 +1898,15 @@
     playlistPanel.hidden = !playlistToggle.checked;
   }
   function updatePlaylistSource() {
-    spotifyEmbed.hidden = playlistSourceSelect.value !== "spotify";
-    youtubeEmbed.hidden = playlistSourceSelect.value !== "youtube";
+    const source = playlistSourceSelect.value;
+    spotifyEmbed.hidden = source !== "spotify";
+    youtubeEmbed.hidden = source !== "youtube";
+    localPlayer.hidden = source !== "local";
+    if (source === "local") {
+      loadLocalBeat(localBeatIndex, { autoplay: false }); // never auto-play on a bare source switch — browsers block it without a gesture anyway, and it'd be a surprise if they didn't
+    } else if (!localPlayerAudio.paused) {
+      localPlayerAudio.pause();
+    }
   }
   playlistToggle.addEventListener("change", () => {
     updatePlaylistVisibility();
@@ -1882,6 +1916,64 @@
     updatePlaylistSource();
     saveSettings();
   });
+
+  // ---- local beats player ----
+  // Each bundled beat (data/beats-data.js) was pre-processed to loop
+  // seamlessly, so the native <audio loop> attribute is enough for
+  // "continues indefinitely" — no manual seam-stitching needed here.
+  function updateLocalPlayerPlayUI() {
+    localPlayerPlayBtn.textContent = localPlayerAudio.paused ? "Play" : "Pause";
+  }
+  function updateLocalPlayerLoopUI() {
+    localPlayerLoopBtn.classList.toggle("active", localLoop);
+    localPlayerAudio.loop = localLoop;
+  }
+  function updateLocalPlayerVolumeUI() {
+    const pct = Math.round(localVolume * 100);
+    localPlayerVolumeSlider.value = String(pct);
+    localPlayerVolumeValue.textContent = `${pct}%`;
+    localPlayerAudio.volume = localVolume;
+  }
+  function loadLocalBeat(index, opts) {
+    const wasPlaying = opts && typeof opts.autoplay === "boolean" ? opts.autoplay : !localPlayerAudio.paused;
+    localBeatIndex = ((index % LOCAL_BEATS.length) + LOCAL_BEATS.length) % LOCAL_BEATS.length;
+    const beat = LOCAL_BEATS[localBeatIndex];
+    localPlayerTrack.textContent = `${beat.title} — ${beat.genre}`;
+    if (localPlayerAudio.dataset.file !== beat.file) {
+      localPlayerAudio.src = beat.file;
+      localPlayerAudio.dataset.file = beat.file;
+    }
+    if (wasPlaying) {
+      localPlayerAudio.play().catch(() => {}); // blocked (e.g. no user gesture yet) — the 'play'/'pause' listeners below keep the button honest either way
+    }
+    updateLocalPlayerPlayUI();
+  }
+  localPlayerPrevBtn.addEventListener("click", () => {
+    loadLocalBeat(localBeatIndex - 1);
+    saveSettings();
+  });
+  localPlayerNextBtn.addEventListener("click", () => {
+    loadLocalBeat(localBeatIndex + 1);
+    saveSettings();
+  });
+  localPlayerPlayBtn.addEventListener("click", () => {
+    if (!localPlayerAudio.src) loadLocalBeat(localBeatIndex, { autoplay: false });
+    if (localPlayerAudio.paused) localPlayerAudio.play().catch(() => {});
+    else localPlayerAudio.pause();
+  });
+  localPlayerAudio.addEventListener("play", updateLocalPlayerPlayUI);
+  localPlayerAudio.addEventListener("pause", updateLocalPlayerPlayUI);
+  localPlayerAudio.addEventListener("ended", updateLocalPlayerPlayUI); // only reachable with loop off
+  localPlayerLoopBtn.addEventListener("click", () => {
+    localLoop = !localLoop;
+    updateLocalPlayerLoopUI();
+    saveSettings();
+  });
+  localPlayerVolumeSlider.addEventListener("input", () => {
+    localVolume = clamp(parseInt(localPlayerVolumeSlider.value, 10), 0, 100) / 100;
+    updateLocalPlayerVolumeUI();
+  });
+  localPlayerVolumeSlider.addEventListener("change", saveSettings);
 
   // Spotify's embed is cross-origin, so we can't reach into it — but when
   // its internal UI shifts focus to highlight a newly-playing track,
@@ -1962,6 +2054,8 @@
   updateMetronomeVolumeUI();
   playlistToggle.checked = playlistVisible;
   playlistSourceSelect.value = playlistSource;
+  updateLocalPlayerLoopUI();
+  updateLocalPlayerVolumeUI();
   updatePlaylistSource();
   if (customCountActive) customCountInput.value = selectedCount;
   autoRefreshToggle.checked = autoRefreshEnabled;
