@@ -813,13 +813,17 @@ a.share-btn.btn-ghost{display:inline-flex;}
 }
 
 .pairs{
-  display:grid;
-  grid-template-columns:1fr;
-  gap:10px;
+  display:flex;
+  flex-direction:column;
 }
 @media (min-width:760px){
   .pairs{
-    grid-template-columns:repeat(auto-fit, minmax(420px, 1fr));
+    /* Multi-column flow (not grid) so cards read top-to-bottom within a
+       column before wrapping to the next one — a vertical/"snake" order —
+       rather than grid's left-to-right row order. */
+    display:block;
+    column-width:420px;
+    column-gap:10px;
   }
 }
 .pair-card{
@@ -830,7 +834,11 @@ a.share-btn.btn-ghost{display:inline-flex;}
   display:flex;
   align-items:center;
   gap:16px;
+  margin-bottom:10px;
+  break-inside:avoid;
+  -webkit-column-break-inside:avoid;
 }
+.pair-card:last-child{margin-bottom:0;}
 .pair-idx{
   font-family:'Space Grotesk',sans-serif;
   font-size:13px;
