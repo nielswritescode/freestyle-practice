@@ -1789,6 +1789,10 @@
     pairs.forEach((p, idx) => {
       const card = document.createElement("div");
       card.className = "pair-card";
+      // "perfect" is the only type possible while slant rhymes are off, so
+      // labeling every card with it is just noise — only show it once slant
+      // is enabled and a card could plausibly be either type.
+      const showType = p.type !== "perfect" || activeTypes.has("slant");
       card.innerHTML = `
         <div class="pair-idx">${String(idx + 1).padStart(2, "0")}</div>
         <div class="pair-words">
@@ -1796,9 +1800,7 @@
           <span class="tie">&harr;</span>
           ${renderWord(p.b, "b")}
         </div>
-        <div class="meta">
-          <span class="type-chip ${p.type}">${p.type}</span>
-        </div>
+        ${showType ? `<div class="meta"><span class="type-chip ${p.type}">${p.type}</span></div>` : ""}
       `;
       pairsContainer.appendChild(card);
     });
