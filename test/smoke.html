@@ -593,9 +593,20 @@ test("share buttons: WhatsApp/Facebook open the right share URLs, Instagram copi
 
 // ---- collab mode ----
 
+// Mirrors js/app.js's COLLAB_COLORS — colors (not a "P1"/"P2" chip) are
+// what identify a card's person, so tests read the --collab-color custom
+// property a card was assigned rather than any on-card label.
+const COLLAB_COLORS = [
+  "#e6194b", "#3cb44b", "#4363d8", "#f58231",
+  "#911eb4", "#2f9e9e", "#cf3f9e", "#8b5a2b",
+];
+function collabColorsOf(doc) {
+  return [...doc.querySelectorAll(".pair-card")].map((el) => el.style.getPropertyValue("--collab-color").trim());
+}
+
 test("collab mode checkbox reveals options with default count 2", async (doc) => {
   assertEqual(displayOf(doc.getElementById("collabOptionsRow")), "none", "collab options row should start hidden");
-  assertEqual(doc.querySelectorAll(".pair-card .collab-chip").length, 0, "no collab chips before enabling collab mode");
+  assertEqual(doc.querySelectorAll(".pair-card.collab-pair").length, 0, "no pair cards should carry a collab color before enabling collab mode");
 
   doc.getElementById("collabToggle").click();
   assertEqual(displayOf(doc.getElementById("collabOptionsRow")), "flex", "collab options row should show once enabled");
@@ -608,24 +619,24 @@ test("collab mode checkbox reveals options with default count 2", async (doc) =>
 
 test("collab mode colors pairs into contiguous per-person turns", async (doc) => {
   doc.getElementById("collabToggle").click();
-  const chips = [...doc.querySelectorAll(".pair-card .collab-chip")].map((el) => el.textContent);
-  assertEqual(chips.length, 20, "every pair card should get a collab chip once enabled");
-  assert(chips.slice(0, 10).every((t) => t === "P1"), "first 10 pairs (20/2) should belong to person 1, got " + chips.join(","));
-  assert(chips.slice(10, 20).every((t) => t === "P2"), "next 10 pairs should belong to person 2, got " + chips.join(","));
-  assert(doc.querySelector(".pair-card").classList.contains("collab-pair"), "pair cards should get the collab-pair class for their colored border");
+  const colors = collabColorsOf(doc);
+  assertEqual(colors.length, 20, "every pair card should get a collab color once enabled");
+  assert(colors.slice(0, 10).every((c) => c === COLLAB_COLORS[0]), "first 10 pairs (20/2) should belong to person 1, got " + colors.join(","));
+  assert(colors.slice(10, 20).every((c) => c === COLLAB_COLORS[1]), "next 10 pairs should belong to person 2, got " + colors.join(","));
+  assert(doc.querySelector(".pair-card").classList.contains("collab-pair"), "pair cards should get the collab-pair class for their coloring");
 });
 
-test("changing collaborator count updates swatches and chip distribution", async (doc) => {
+test("changing collaborator count updates swatches and color distribution", async (doc) => {
   doc.getElementById("collabToggle").click();
   const input = doc.getElementById("collabCountInput");
   input.value = "4";
   input.dispatchEvent(new Event("change", { bubbles: true }));
   assertEqual(doc.querySelectorAll("#collabSwatches .collab-swatch").length, 4, "should show 4 swatches after raising the count");
 
-  const chips = [...doc.querySelectorAll(".pair-card .collab-chip")].map((el) => el.textContent);
-  assert(chips.slice(0, 5).every((t) => t === "P1"), "first chunk (20/4=5) should belong to person 1, got " + chips.join(","));
-  assert(chips.slice(5, 10).every((t) => t === "P2"), "second chunk should belong to person 2, got " + chips.join(","));
-  assert(chips.slice(15, 20).every((t) => t === "P4"), "last chunk should belong to person 4, got " + chips.join(","));
+  const colors = collabColorsOf(doc);
+  assert(colors.slice(0, 5).every((c) => c === COLLAB_COLORS[0]), "first chunk (20/4=5) should belong to person 1, got " + colors.join(","));
+  assert(colors.slice(5, 10).every((c) => c === COLLAB_COLORS[1]), "second chunk should belong to person 2, got " + colors.join(","));
+  assert(colors.slice(15, 20).every((c) => c === COLLAB_COLORS[3]), "last chunk should belong to person 4, got " + colors.join(","));
 });
 
 test("uneven division carries the in-progress turn into the next refresh instead of restarting", async (doc) => {
@@ -634,28 +645,26 @@ test("uneven division carries the in-progress turn into the next refresh instead
   input.value = "3";
   input.dispatchEvent(new Event("change", { bubbles: true }));
 
-  const chipsOf = () => [...doc.querySelectorAll(".pair-card .collab-chip")].map((el) => el.textContent);
-
   // chunk = floor(20/3) = 6: P1 x6, P2 x6, P3 x6, leaving 2 leftover pairs
   // that start person 1's next turn rather than splitting unevenly here.
-  const batch1 = chipsOf();
+  const batch1 = collabColorsOf(doc);
   assertEqual(batch1.length, 20);
-  assert(batch1.slice(0, 6).every((t) => t === "P1"), "pairs 1-6 should be person 1's turn, got " + batch1.join(","));
-  assert(batch1.slice(6, 12).every((t) => t === "P2"), "pairs 7-12 should be person 2's turn, got " + batch1.join(","));
-  assert(batch1.slice(12, 18).every((t) => t === "P3"), "pairs 13-18 should be person 3's turn, got " + batch1.join(","));
-  assert(batch1.slice(18, 20).every((t) => t === "P1"), "the 2 leftover pairs should start person 1's next turn, got " + batch1.join(","));
+  assert(batch1.slice(0, 6).every((c) => c === COLLAB_COLORS[0]), "pairs 1-6 should be person 1's turn, got " + batch1.join(","));
+  assert(batch1.slice(6, 12).every((c) => c === COLLAB_COLORS[1]), "pairs 7-12 should be person 2's turn, got " + batch1.join(","));
+  assert(batch1.slice(12, 18).every((c) => c === COLLAB_COLORS[2]), "pairs 13-18 should be person 3's turn, got " + batch1.join(","));
+  assert(batch1.slice(18, 20).every((c) => c === COLLAB_COLORS[0]), "the 2 leftover pairs should start person 1's next turn, got " + batch1.join(","));
 
   doc.getElementById("refreshBtnTop").click();
 
   // Person 1's turn (2 pairs in from batch 1) carries over: 4 more pairs
   // complete it before the rotation continues to person 2, then 3, then
   // wraps back to person 1 for the remainder.
-  const batch2 = chipsOf();
+  const batch2 = collabColorsOf(doc);
   assertEqual(batch2.length, 20);
-  assert(batch2.slice(0, 4).every((t) => t === "P1"), "the first 4 pairs of the next batch should complete person 1's carried-over turn, got " + batch2.join(","));
-  assert(batch2.slice(4, 10).every((t) => t === "P2"), "person 2's turn should follow, got " + batch2.join(","));
-  assert(batch2.slice(10, 16).every((t) => t === "P3"), "person 3's turn should follow, got " + batch2.join(","));
-  assert(batch2.slice(16, 20).every((t) => t === "P1"), "rotation should continue back to person 1 for the remainder, got " + batch2.join(","));
+  assert(batch2.slice(0, 4).every((c) => c === COLLAB_COLORS[0]), "the first 4 pairs of the next batch should complete person 1's carried-over turn, got " + batch2.join(","));
+  assert(batch2.slice(4, 10).every((c) => c === COLLAB_COLORS[1]), "person 2's turn should follow, got " + batch2.join(","));
+  assert(batch2.slice(10, 16).every((c) => c === COLLAB_COLORS[2]), "person 3's turn should follow, got " + batch2.join(","));
+  assert(batch2.slice(16, 20).every((c) => c === COLLAB_COLORS[0]), "rotation should continue back to person 1 for the remainder, got " + batch2.join(","));
 });
 
 test("collab mode enabled state and collaborator count persist across a reload", async (doc) => {

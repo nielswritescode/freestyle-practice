@@ -1885,7 +1885,6 @@
           ${renderWord(p.b, "b")}
         </div>
         <div class="meta">
-          ${hasCollabColor ? `<span class="collab-chip">P${p.collabPerson + 1}</span>` : ""}
           <span class="type-chip ${p.type}">${p.type}</span>
         </div>
       `;
