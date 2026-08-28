@@ -673,80 +673,112 @@ function collabColorsOf(doc) {
   return [...doc.querySelectorAll(".pair-card")].map((el) => el.style.getPropertyValue("--collab-color").trim());
 }
 
-test("collab mode checkbox reveals options with default count 2", async (doc) => {
+test("collab mode checkbox reveals options with default count 2 and 2 pairs per turn", async (doc) => {
   assertEqual(displayOf(doc.getElementById("collabOptionsRow")), "none", "collab options row should start hidden");
+  assertEqual(displayOf(doc.getElementById("collabPairsPerTurnRow")), "none", "pairs-per-turn row should start hidden");
   assertEqual(doc.querySelectorAll(".pair-card.collab-pair").length, 0, "no pair cards should carry a collab color before enabling collab mode");
 
   doc.getElementById("collabToggle").click();
   assertEqual(displayOf(doc.getElementById("collabOptionsRow")), "flex", "collab options row should show once enabled");
+  assertEqual(displayOf(doc.getElementById("collabPairsPerTurnRow")), "flex", "pairs-per-turn row should show once enabled");
   assertEqual(doc.getElementById("collabCountInput").value, "2", "should default to 2 collaborators");
+  assertEqual(doc.getElementById("collabPairsPerTurnSelect").value, "2", "should default to 2 pairs per turn");
   assertEqual(doc.querySelectorAll("#collabSwatches .collab-swatch").length, 2, "should show 2 color swatches by default");
 
   doc.getElementById("collabToggle").click();
   assertEqual(displayOf(doc.getElementById("collabOptionsRow")), "none", "collab options row should hide again once disabled");
+  assertEqual(displayOf(doc.getElementById("collabPairsPerTurnRow")), "none", "pairs-per-turn row should hide again once disabled");
 });
 
-test("collab mode colors pairs into contiguous per-person turns", async (doc) => {
+test("collab mode colors pairs into contiguous per-person turns sized by the pairs-per-turn dropdown", async (doc) => {
   doc.getElementById("collabToggle").click();
   const colors = collabColorsOf(doc);
   assertEqual(colors.length, 20, "every pair card should get a collab color once enabled");
-  assert(colors.slice(0, 10).every((c) => c === COLLAB_COLORS[0]), "first 10 pairs (20/2) should belong to person 1, got " + colors.join(","));
-  assert(colors.slice(10, 20).every((c) => c === COLLAB_COLORS[1]), "next 10 pairs should belong to person 2, got " + colors.join(","));
+  // default 2 collaborators x 2 pairs per turn: P1,P1,P2,P2,P1,P1,P2,P2,...
+  assert(colors.slice(0, 2).every((c) => c === COLLAB_COLORS[0]), "first 2 pairs should belong to person 1, got " + colors.join(","));
+  assert(colors.slice(2, 4).every((c) => c === COLLAB_COLORS[1]), "next 2 pairs should belong to person 2, got " + colors.join(","));
+  assert(colors.slice(4, 6).every((c) => c === COLLAB_COLORS[0]), "rotation should return to person 1 for the next turn, got " + colors.join(","));
   assert(doc.querySelector(".pair-card").classList.contains("collab-pair"), "pair cards should get the collab-pair class for their coloring");
 });
 
-test("changing collaborator count updates swatches and color distribution", async (doc) => {
+test("changing pairs-per-turn resizes each person's turn independently of collaborator count", async (doc) => {
+  doc.getElementById("collabToggle").click();
+  const select = doc.getElementById("collabPairsPerTurnSelect");
+  select.value = "4";
+  select.dispatchEvent(new Event("change", { bubbles: true }));
+
+  const colors = collabColorsOf(doc);
+  assert(colors.slice(0, 4).every((c) => c === COLLAB_COLORS[0]), "first 4 pairs should belong to person 1, got " + colors.join(","));
+  assert(colors.slice(4, 8).every((c) => c === COLLAB_COLORS[1]), "next 4 pairs should belong to person 2, got " + colors.join(","));
+  assert(colors.slice(8, 12).every((c) => c === COLLAB_COLORS[0]), "rotation should return to person 1, got " + colors.join(","));
+});
+
+test("changing collaborator count updates swatches without changing pairs-per-turn", async (doc) => {
   doc.getElementById("collabToggle").click();
   const input = doc.getElementById("collabCountInput");
   input.value = "4";
   input.dispatchEvent(new Event("change", { bubbles: true }));
   assertEqual(doc.querySelectorAll("#collabSwatches .collab-swatch").length, 4, "should show 4 swatches after raising the count");
+  assertEqual(doc.getElementById("collabPairsPerTurnSelect").value, "2", "pairs-per-turn should be untouched by changing collaborator count");
 
+  // still 2 pairs per turn, now rotating across 4 people.
   const colors = collabColorsOf(doc);
-  assert(colors.slice(0, 5).every((c) => c === COLLAB_COLORS[0]), "first chunk (20/4=5) should belong to person 1, got " + colors.join(","));
-  assert(colors.slice(5, 10).every((c) => c === COLLAB_COLORS[1]), "second chunk should belong to person 2, got " + colors.join(","));
-  assert(colors.slice(15, 20).every((c) => c === COLLAB_COLORS[3]), "last chunk should belong to person 4, got " + colors.join(","));
+  assert(colors.slice(0, 2).every((c) => c === COLLAB_COLORS[0]), "first 2 pairs should belong to person 1, got " + colors.join(","));
+  assert(colors.slice(2, 4).every((c) => c === COLLAB_COLORS[1]), "next 2 pairs should belong to person 2, got " + colors.join(","));
+  assert(colors.slice(4, 6).every((c) => c === COLLAB_COLORS[2]), "next 2 pairs should belong to person 3, got " + colors.join(","));
+  assert(colors.slice(6, 8).every((c) => c === COLLAB_COLORS[3]), "next 2 pairs should belong to person 4, got " + colors.join(","));
 });
 
 test("uneven division carries the in-progress turn into the next refresh instead of restarting", async (doc) => {
   doc.getElementById("collabToggle").click();
-  const input = doc.getElementById("collabCountInput");
-  input.value = "3";
-  input.dispatchEvent(new Event("change", { bubbles: true }));
+  const countInput = doc.getElementById("collabCountInput");
+  countInput.value = "3";
+  countInput.dispatchEvent(new Event("change", { bubbles: true }));
+  const turnSelect = doc.getElementById("collabPairsPerTurnSelect");
+  turnSelect.value = "3";
+  turnSelect.dispatchEvent(new Event("change", { bubbles: true }));
 
-  // chunk = floor(20/3) = 6: P1 x6, P2 x6, P3 x6, leaving 2 leftover pairs
-  // that start person 1's next turn rather than splitting unevenly here.
+  // 3 collaborators x 3 pairs per turn = 9 pairs per full rotation: with 20
+  // pairs that's 2 full rotations (18) plus 2 leftover pairs that start
+  // person 1's next turn rather than splitting unevenly here.
   const batch1 = collabColorsOf(doc);
   assertEqual(batch1.length, 20);
-  assert(batch1.slice(0, 6).every((c) => c === COLLAB_COLORS[0]), "pairs 1-6 should be person 1's turn, got " + batch1.join(","));
-  assert(batch1.slice(6, 12).every((c) => c === COLLAB_COLORS[1]), "pairs 7-12 should be person 2's turn, got " + batch1.join(","));
-  assert(batch1.slice(12, 18).every((c) => c === COLLAB_COLORS[2]), "pairs 13-18 should be person 3's turn, got " + batch1.join(","));
+  assert(batch1.slice(0, 3).every((c) => c === COLLAB_COLORS[0]), "pairs 1-3 should be person 1's turn, got " + batch1.join(","));
+  assert(batch1.slice(3, 6).every((c) => c === COLLAB_COLORS[1]), "pairs 4-6 should be person 2's turn, got " + batch1.join(","));
+  assert(batch1.slice(6, 9).every((c) => c === COLLAB_COLORS[2]), "pairs 7-9 should be person 3's turn, got " + batch1.join(","));
+  assert(batch1.slice(9, 12).every((c) => c === COLLAB_COLORS[0]), "pairs 10-12 should be person 1's turn, got " + batch1.join(","));
+  assert(batch1.slice(12, 15).every((c) => c === COLLAB_COLORS[1]), "pairs 13-15 should be person 2's turn, got " + batch1.join(","));
+  assert(batch1.slice(15, 18).every((c) => c === COLLAB_COLORS[2]), "pairs 16-18 should be person 3's turn, got " + batch1.join(","));
   assert(batch1.slice(18, 20).every((c) => c === COLLAB_COLORS[0]), "the 2 leftover pairs should start person 1's next turn, got " + batch1.join(","));
 
   doc.getElementById("refreshBtnTop").click();
 
-  // Person 1's turn (2 pairs in from batch 1) carries over: 4 more pairs
-  // complete it before the rotation continues to person 2, then 3, then
+  // Person 1's turn (2 pairs in from batch 1) carries over: 1 more pair
+  // completes it before the rotation continues to person 2, then 3, then
   // wraps back to person 1 for the remainder.
   const batch2 = collabColorsOf(doc);
   assertEqual(batch2.length, 20);
-  assert(batch2.slice(0, 4).every((c) => c === COLLAB_COLORS[0]), "the first 4 pairs of the next batch should complete person 1's carried-over turn, got " + batch2.join(","));
-  assert(batch2.slice(4, 10).every((c) => c === COLLAB_COLORS[1]), "person 2's turn should follow, got " + batch2.join(","));
-  assert(batch2.slice(10, 16).every((c) => c === COLLAB_COLORS[2]), "person 3's turn should follow, got " + batch2.join(","));
-  assert(batch2.slice(16, 20).every((c) => c === COLLAB_COLORS[0]), "rotation should continue back to person 1 for the remainder, got " + batch2.join(","));
+  assert(batch2.slice(0, 1).every((c) => c === COLLAB_COLORS[0]), "the first pair of the next batch should complete person 1's carried-over turn, got " + batch2.join(","));
+  assert(batch2.slice(1, 4).every((c) => c === COLLAB_COLORS[1]), "person 2's turn should follow, got " + batch2.join(","));
+  assert(batch2.slice(4, 7).every((c) => c === COLLAB_COLORS[2]), "person 3's turn should follow, got " + batch2.join(","));
+  assert(batch2.slice(7, 10).every((c) => c === COLLAB_COLORS[0]), "rotation should continue back to person 1, got " + batch2.join(","));
 });
 
-test("collab mode enabled state and collaborator count persist across a reload", async (doc) => {
+test("collab mode enabled state, collaborator count, and pairs-per-turn persist across a reload", async (doc) => {
   doc.getElementById("collabToggle").click();
-  const input = doc.getElementById("collabCountInput");
-  input.value = "5";
-  input.dispatchEvent(new Event("change", { bubbles: true }));
+  const countInput = doc.getElementById("collabCountInput");
+  countInput.value = "5";
+  countInput.dispatchEvent(new Event("change", { bubbles: true }));
+  const turnSelect = doc.getElementById("collabPairsPerTurnSelect");
+  turnSelect.value = "3";
+  turnSelect.dispatchEvent(new Event("change", { bubbles: true }));
   await sleep(50);
 
   const fresh = await loadFreshApp();
   try {
     assert(fresh.doc.getElementById("collabToggle").checked, "collab mode should persist as enabled");
     assertEqual(fresh.doc.getElementById("collabCountInput").value, "5", "collaborator count should persist");
+    assertEqual(fresh.doc.getElementById("collabPairsPerTurnSelect").value, "3", "pairs-per-turn should persist");
     assertEqual(fresh.doc.querySelectorAll("#collabSwatches .collab-swatch").length, 5, "swatches should reflect the persisted count on reload");
   } finally {
     fresh.iframe.remove();

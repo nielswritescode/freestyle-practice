@@ -396,6 +396,7 @@ input[type="range"]:focus-visible{outline:2px solid var(--accent); outline-offse
 #slantMinScoreRow[hidden]{display:none;}
 #categoryRow[hidden]{display:none;}
 #collabOptionsRow[hidden]{display:none;}
+#collabPairsPerTurnRow[hidden]{display:none;}
 
 .collab-swatches{
   display:flex;
