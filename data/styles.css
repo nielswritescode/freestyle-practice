@@ -374,6 +374,26 @@ input[type="range"]:focus-visible{outline:2px solid var(--accent); outline-offse
 #slantToggleRow[hidden]{display:none;}
 #slantRatioRow[hidden]{display:none;}
 #slantMinScoreRow[hidden]{display:none;}
+#collabOptionsRow[hidden]{display:none;}
+
+.collab-swatches{
+  display:flex;
+  gap:6px;
+  flex-wrap:wrap;
+}
+.collab-swatch{
+  width:26px;
+  height:26px;
+  border-radius:50%;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  font-family:'Space Grotesk',sans-serif;
+  font-size:11px;
+  font-weight:700;
+  color:#fff;
+  flex-shrink:0;
+}
 
 /* Practice timer — always a fixed bottom bar, on every screen size (not
    gated behind a max-width media query — that split turned out not to
@@ -831,6 +851,7 @@ a.share-btn.btn-ghost{display:inline-flex;}
   align-items:center;
   gap:16px;
 }
+.pair-card.collab-pair{border-left:5px solid var(--collab-color, var(--line));}
 .pair-idx{
   font-family:'Space Grotesk',sans-serif;
   font-size:13px;
@@ -920,6 +941,16 @@ span.word.word-delete:hover{
 .type-chip.perfect{background:rgba(242,194,48,0.18); color:var(--perfect);}
 .type-chip.near{background:rgba(224,138,76,0.18); color:var(--near);}
 .type-chip.slant{background:rgba(201,106,106,0.18); color:var(--slant);}
+.collab-chip{
+  font-family:'Space Grotesk',sans-serif;
+  font-size:10px;
+  font-weight:700;
+  padding:3px 9px;
+  border-radius:999px;
+  white-space:nowrap;
+  background:var(--collab-color, var(--accent));
+  color:#fff;
+}
 .sound-tag{
   font-family:'Space Grotesk',sans-serif;
   font-size:11px;

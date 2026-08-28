@@ -106,7 +106,7 @@ test("broad click sweep across every major control throws no errors", async (doc
     "#timerSoundPreviewBtn", ".timer-sound-pill", "#showAllDefsBtn", "#csvResetBtn",
     "#csvExampleBtn", "#refreshBtnTop", "#refreshBtnBottom", "#playlistToggle",
     "#autoRefreshToggle", "#downloadDeletedBtn", "#clearDeletedBtn", "#showTimerBtn",
-    "#hideUiBtn",
+    "#hideUiBtn", "#collabToggle",
   ];
   let clicked = 0;
   for (const sel of selectors) {
@@ -589,6 +589,90 @@ test("share buttons: WhatsApp/Facebook open the right share URLs, Instagram copi
   await sleep(50);
   assertEqual(copiedText, win.location.href, "Instagram button should copy the page URL to the clipboard");
   assert(doc.getElementById("shareStatus").textContent.length > 0, "share status should show a message after the Instagram click");
+});
+
+// ---- collab mode ----
+
+test("collab mode checkbox reveals options with default count 2", async (doc) => {
+  assertEqual(displayOf(doc.getElementById("collabOptionsRow")), "none", "collab options row should start hidden");
+  assertEqual(doc.querySelectorAll(".pair-card .collab-chip").length, 0, "no collab chips before enabling collab mode");
+
+  doc.getElementById("collabToggle").click();
+  assertEqual(displayOf(doc.getElementById("collabOptionsRow")), "flex", "collab options row should show once enabled");
+  assertEqual(doc.getElementById("collabCountInput").value, "2", "should default to 2 collaborators");
+  assertEqual(doc.querySelectorAll("#collabSwatches .collab-swatch").length, 2, "should show 2 color swatches by default");
+
+  doc.getElementById("collabToggle").click();
+  assertEqual(displayOf(doc.getElementById("collabOptionsRow")), "none", "collab options row should hide again once disabled");
+});
+
+test("collab mode colors pairs into contiguous per-person turns", async (doc) => {
+  doc.getElementById("collabToggle").click();
+  const chips = [...doc.querySelectorAll(".pair-card .collab-chip")].map((el) => el.textContent);
+  assertEqual(chips.length, 20, "every pair card should get a collab chip once enabled");
+  assert(chips.slice(0, 10).every((t) => t === "P1"), "first 10 pairs (20/2) should belong to person 1, got " + chips.join(","));
+  assert(chips.slice(10, 20).every((t) => t === "P2"), "next 10 pairs should belong to person 2, got " + chips.join(","));
+  assert(doc.querySelector(".pair-card").classList.contains("collab-pair"), "pair cards should get the collab-pair class for their colored border");
+});
+
+test("changing collaborator count updates swatches and chip distribution", async (doc) => {
+  doc.getElementById("collabToggle").click();
+  const input = doc.getElementById("collabCountInput");
+  input.value = "4";
+  input.dispatchEvent(new Event("change", { bubbles: true }));
+  assertEqual(doc.querySelectorAll("#collabSwatches .collab-swatch").length, 4, "should show 4 swatches after raising the count");
+
+  const chips = [...doc.querySelectorAll(".pair-card .collab-chip")].map((el) => el.textContent);
+  assert(chips.slice(0, 5).every((t) => t === "P1"), "first chunk (20/4=5) should belong to person 1, got " + chips.join(","));
+  assert(chips.slice(5, 10).every((t) => t === "P2"), "second chunk should belong to person 2, got " + chips.join(","));
+  assert(chips.slice(15, 20).every((t) => t === "P4"), "last chunk should belong to person 4, got " + chips.join(","));
+});
+
+test("uneven division carries the in-progress turn into the next refresh instead of restarting", async (doc) => {
+  doc.getElementById("collabToggle").click();
+  const input = doc.getElementById("collabCountInput");
+  input.value = "3";
+  input.dispatchEvent(new Event("change", { bubbles: true }));
+
+  const chipsOf = () => [...doc.querySelectorAll(".pair-card .collab-chip")].map((el) => el.textContent);
+
+  // chunk = floor(20/3) = 6: P1 x6, P2 x6, P3 x6, leaving 2 leftover pairs
+  // that start person 1's next turn rather than splitting unevenly here.
+  const batch1 = chipsOf();
+  assertEqual(batch1.length, 20);
+  assert(batch1.slice(0, 6).every((t) => t === "P1"), "pairs 1-6 should be person 1's turn, got " + batch1.join(","));
+  assert(batch1.slice(6, 12).every((t) => t === "P2"), "pairs 7-12 should be person 2's turn, got " + batch1.join(","));
+  assert(batch1.slice(12, 18).every((t) => t === "P3"), "pairs 13-18 should be person 3's turn, got " + batch1.join(","));
+  assert(batch1.slice(18, 20).every((t) => t === "P1"), "the 2 leftover pairs should start person 1's next turn, got " + batch1.join(","));
+
+  doc.getElementById("refreshBtnTop").click();
+
+  // Person 1's turn (2 pairs in from batch 1) carries over: 4 more pairs
+  // complete it before the rotation continues to person 2, then 3, then
+  // wraps back to person 1 for the remainder.
+  const batch2 = chipsOf();
+  assertEqual(batch2.length, 20);
+  assert(batch2.slice(0, 4).every((t) => t === "P1"), "the first 4 pairs of the next batch should complete person 1's carried-over turn, got " + batch2.join(","));
+  assert(batch2.slice(4, 10).every((t) => t === "P2"), "person 2's turn should follow, got " + batch2.join(","));
+  assert(batch2.slice(10, 16).every((t) => t === "P3"), "person 3's turn should follow, got " + batch2.join(","));
+  assert(batch2.slice(16, 20).every((t) => t === "P1"), "rotation should continue back to person 1 for the remainder, got " + batch2.join(","));
+});
+
+test("collab mode enabled state and collaborator count persist across a reload", async (doc) => {
+  doc.getElementById("collabToggle").click();
+  const input = doc.getElementById("collabCountInput");
+  input.value = "5";
+  input.dispatchEvent(new Event("change", { bubbles: true }));
+  await sleep(50);
+
+  const fresh = await loadFreshApp();
+  try {
+    assert(fresh.doc.getElementById("collabToggle").checked, "collab mode should persist as enabled");
+    assertEqual(fresh.doc.getElementById("collabCountInput").value, "5", "collaborator count should persist");
+    assertEqual(fresh.doc.querySelectorAll("#collabSwatches .collab-swatch").length, 5, "swatches should reflect the persisted count on reload");
+  } finally {
+    fresh.iframe.remove();
+  }
 });
 
 // ---- runner ----

@@ -114,6 +114,16 @@
   let metronomeBpm = 120; // persisted, like timerVolume — a preference, not session state
   let metronomeVolume = 0.7; // 0..1, persisted the same way as timerVolume
 
+  // Collab mode: x people rhyme together sequentially, each pair-card
+  // colored by whose turn it is. collabEnabled only seeds the checkbox at
+  // init (see the playlistVisible pattern above) — collabToggle.checked is
+  // the source of truth afterward. See assignCollabColors below for how
+  // pairs are split into per-person turns.
+  let collabEnabled = false;
+  let collabCount = 2;
+  const COLLAB_MIN = 2;
+  const COLLAB_MAX = 8;
+
   // ---- persisted settings ----
   // Everything here is a user preference, not session data (a CSV upload
   // isn't remembered — file inputs can't be restored anyway, and Dutch/
@@ -196,6 +206,10 @@
     if (typeof stored.metronomeVolume === "number" && stored.metronomeVolume >= 0 && stored.metronomeVolume <= 1) {
       metronomeVolume = stored.metronomeVolume;
     }
+    if (typeof stored.collabEnabled === "boolean") collabEnabled = stored.collabEnabled;
+    if (typeof stored.collabCount === "number" && stored.collabCount >= COLLAB_MIN && stored.collabCount <= COLLAB_MAX) {
+      collabCount = stored.collabCount;
+    }
   }
 
   function saveSettings() {
@@ -227,6 +241,8 @@
         timerLoop,
         metronomeBpm,
         metronomeVolume,
+        collabEnabled: collabToggle.checked,
+        collabCount,
         deletedWordsByLang: Object.fromEntries(
           Object.entries(deletedWordSets).map(([lang, set]) => [lang, [...set]])
         ),
@@ -272,6 +288,10 @@
   const playlistSourceSelect = document.getElementById("playlistSourceSelect");
   const spotifyEmbed = document.getElementById("spotifyEmbed");
   const youtubeEmbed = document.getElementById("youtubeEmbed");
+  const collabToggle = document.getElementById("collabToggle");
+  const collabOptionsRow = document.getElementById("collabOptionsRow");
+  const collabCountInput = document.getElementById("collabCountInput");
+  const collabSwatches = document.getElementById("collabSwatches");
   const guidelinesDetails = document.getElementById("guidelinesDetails");
   const advancedDetails = document.getElementById("advancedDetails");
   const revealModePills = document.querySelectorAll(".reveal-mode-pill");
@@ -1779,6 +1799,68 @@
     }
   }
 
+  // Collab mode: each freshly generated batch is split into contiguous
+  // per-person turns sized to selectedCount/collabCount. collabPerson/
+  // collabOffset are deliberately module-level (not reset per batch) so
+  // that when a batch doesn't divide evenly, the in-progress turn carries
+  // into the next generate() call instead of restarting at person 1 —
+  // requested explicitly: turns should stay contiguous across refreshes.
+  const COLLAB_COLORS = [
+    "#e6194b", "#3cb44b", "#4363d8", "#f58231",
+    "#911eb4", "#2f9e9e", "#cf3f9e", "#8b5a2b",
+  ];
+  let collabPerson = 0;
+  let collabOffset = 0;
+
+  function resetCollabRotation() {
+    collabPerson = 0;
+    collabOffset = 0;
+  }
+
+  function assignCollabColors(pairs) {
+    const chunkSize = Math.max(1, Math.floor(selectedCount / collabCount));
+    for (const p of pairs) {
+      p.collabPerson = collabPerson;
+      collabOffset++;
+      if (collabOffset >= chunkSize) {
+        collabOffset = 0;
+        collabPerson = (collabPerson + 1) % collabCount;
+      }
+    }
+  }
+
+  function updateCollabOptionsUI() {
+    collabOptionsRow.hidden = !collabToggle.checked;
+    collabCountInput.value = String(collabCount);
+    collabSwatches.innerHTML = "";
+    for (let i = 0; i < collabCount; i++) {
+      const dot = document.createElement("span");
+      dot.className = "collab-swatch";
+      dot.style.background = COLLAB_COLORS[i % COLLAB_COLORS.length];
+      dot.textContent = String(i + 1);
+      collabSwatches.appendChild(dot);
+    }
+  }
+
+  collabToggle.addEventListener("change", () => {
+    updateCollabOptionsUI();
+    resetCollabRotation();
+    if (collabToggle.checked) assignCollabColors(currentPairs);
+    renderPairs(currentPairs, selectedCount);
+    saveSettings();
+  });
+
+  collabCountInput.addEventListener("change", () => {
+    collabCount = clamp(parseInt(collabCountInput.value, 10) || COLLAB_MIN, COLLAB_MIN, COLLAB_MAX);
+    updateCollabOptionsUI();
+    resetCollabRotation();
+    if (collabToggle.checked) {
+      assignCollabColors(currentPairs);
+      renderPairs(currentPairs, selectedCount);
+    }
+    saveSettings();
+  });
+
   function renderPairs(pairs, requested) {
     pairsContainer.innerHTML = "";
     if (pairs.length === 0) {
@@ -1786,9 +1868,15 @@
       countInfo.textContent = "";
       return;
     }
+    const showCollab = collabToggle.checked;
     pairs.forEach((p, idx) => {
       const card = document.createElement("div");
       card.className = "pair-card";
+      const hasCollabColor = showCollab && typeof p.collabPerson === "number";
+      if (hasCollabColor) {
+        card.classList.add("collab-pair");
+        card.style.setProperty("--collab-color", COLLAB_COLORS[p.collabPerson % COLLAB_COLORS.length]);
+      }
       card.innerHTML = `
         <div class="pair-idx">${String(idx + 1).padStart(2, "0")}</div>
         <div class="pair-words">
@@ -1797,6 +1885,7 @@
           ${renderWord(p.b, "b")}
         </div>
         <div class="meta">
+          ${hasCollabColor ? `<span class="collab-chip">P${p.collabPerson + 1}</span>` : ""}
           <span class="type-chip ${p.type}">${p.type}</span>
         </div>
       `;
@@ -1815,6 +1904,7 @@
       ? generateSensitiveOnlyPairs(types, getKey)
       : generatePairs(activeWordList(), selectedCount, types, getKey, slantDbForCurrentLanguage(), slantRatio);
     currentPairs = pairs;
+    if (collabToggle.checked) assignCollabColors(pairs);
     renderPairs(pairs, selectedCount);
     if (scroll) scrollToResults();
   }
@@ -1956,6 +2046,8 @@
   playlistToggle.checked = playlistVisible;
   playlistSourceSelect.value = playlistSource;
   updatePlaylistSource();
+  collabToggle.checked = collabEnabled;
+  updateCollabOptionsUI();
   if (customCountActive) customCountInput.value = selectedCount;
   autoRefreshToggle.checked = autoRefreshEnabled;
   autoRefreshSecondsInput.value = autoRefreshSeconds;

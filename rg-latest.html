@@ -125,6 +125,17 @@
           <option value="youtube">YouTube</option>
         </select>
       </div>
+      <div class="row">
+        <label class="checkbox-row">
+          <input type="checkbox" id="collabToggle">
+          <span>Collab mode</span>
+        </label>
+      </div>
+      <div class="row" id="collabOptionsRow" hidden>
+        <div class="label">Collaborators</div>
+        <input type="number" id="collabCountInput" min="2" max="8" value="2">
+        <div class="collab-swatches" id="collabSwatches"></div>
+      </div>
     </div>
 
     <details class="panel collapsible-panel" id="advancedDetails">
