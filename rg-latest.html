@@ -123,6 +123,7 @@
         <select id="playlistSourceSelect" class="player-select">
           <option value="spotify">Spotify</option>
           <option value="youtube">YouTube</option>
+          <option value="local">Local Beats</option>
         </select>
       </div>
     </div>
@@ -303,6 +304,21 @@
   <div class="playlist-panel" id="playlistPanel">
     <iframe class="player-embed" id="spotifyEmbed" data-testid="embed-iframe" style="border-radius:12px" src="https://open.spotify.com/embed/playlist/6SZt39ktXkhy8WUJe1CRUv?utm_source=generator&si=29beb8e567bf4077" width="100%" height="152" frameBorder="0" allowfullscreen="" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy"></iframe>
     <iframe class="player-embed" id="youtubeEmbed" hidden style="border-radius:12px" src="https://www.youtube.com/embed/videoseries?list=PL0L_zzLQSZ2V7PR2wj7zOnrOxPlIUKix6" width="100%" height="315" frameBorder="0" allowfullscreen="" allow="autoplay; encrypted-media; picture-in-picture" loading="lazy"></iframe>
+    <div class="panel local-player" id="localPlayer" hidden>
+      <div class="local-player-track" id="localPlayerTrack">—</div>
+      <div class="row local-player-controls">
+        <button type="button" class="btn-ghost timer-symbol-btn" id="localPlayerPrevBtn" aria-label="Previous beat">⏮</button>
+        <button type="button" class="btn-main local-player-play-btn" id="localPlayerPlayBtn">Play</button>
+        <button type="button" class="btn-ghost timer-symbol-btn" id="localPlayerNextBtn" aria-label="Next beat">⏭</button>
+        <button type="button" class="pill timer-symbol-btn" id="localPlayerLoopBtn" aria-label="Loop">∞</button>
+      </div>
+      <div class="row">
+        <div class="label">Volume</div>
+        <input type="range" id="localPlayerVolumeSlider" min="0" max="100" step="5" value="70" aria-label="Beat volume">
+        <span class="range-value" id="localPlayerVolumeValue">70%</span>
+      </div>
+      <audio id="localPlayerAudio" preload="none"></audio>
+    </div>
   </div>
 
   <div class="footer-bar">
@@ -358,6 +374,7 @@
 <script src="data/wordnet-data.js"></script>
 <script src="data/sensitive-words.js"></script>
 <script src="data/slant-rhymes-datamuse.js"></script>
+<script src="data/beats-data.js"></script>
 <script src="js/phonetics-en.js"></script>
 <script src="js/rhyme-classify.js"></script>
 <script src="js/pair-generator.js"></script>

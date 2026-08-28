@@ -106,7 +106,8 @@ test("broad click sweep across every major control throws no errors", async (doc
     "#timerSoundPreviewBtn", ".timer-sound-pill", "#showAllDefsBtn", "#csvResetBtn",
     "#csvExampleBtn", "#refreshBtnTop", "#refreshBtnBottom", "#playlistToggle",
     "#autoRefreshToggle", "#downloadDeletedBtn", "#clearDeletedBtn", "#showTimerBtn",
-    "#hideUiBtn",
+    "#hideUiBtn", "#localPlayerPrevBtn", "#localPlayerPlayBtn", "#localPlayerNextBtn",
+    "#localPlayerLoopBtn",
   ];
   let clicked = 0;
   for (const sel of selectors) {
@@ -589,6 +590,49 @@ test("share buttons: WhatsApp/Facebook open the right share URLs, Instagram copi
   await sleep(50);
   assertEqual(copiedText, win.location.href, "Instagram button should copy the page URL to the clipboard");
   assert(doc.getElementById("shareStatus").textContent.length > 0, "share status should show a message after the Instagram click");
+});
+
+// ---- local beats player ----
+
+test("switching the player source to Local Beats shows the local player and hides the embeds", async (doc) => {
+  assertEqual(displayOf(doc.getElementById("localPlayer")), "none", "local player should start hidden");
+  const select = doc.getElementById("playlistSourceSelect");
+  select.value = "local";
+  select.dispatchEvent(new Event("change", { bubbles: true }));
+  assertEqual(displayOf(doc.getElementById("localPlayer")), "flex", "local player should show once selected");
+  assertEqual(displayOf(doc.getElementById("spotifyEmbed")), "none", "spotify embed should hide");
+  assertEqual(displayOf(doc.getElementById("youtubeEmbed")), "none", "youtube embed should hide");
+  assert(doc.getElementById("localPlayerTrack").textContent.length > 0, "track label should show the current beat's title");
+});
+
+test("local player next/prev cycle through beats and the loop toggle persists", async (doc, win) => {
+  const select = doc.getElementById("playlistSourceSelect");
+  select.value = "local";
+  select.dispatchEvent(new Event("change", { bubbles: true }));
+
+  const track = doc.getElementById("localPlayerTrack");
+  const firstTrack = track.textContent;
+  doc.getElementById("localPlayerNextBtn").click();
+  assert(track.textContent !== firstTrack, "next should move to a different beat");
+  doc.getElementById("localPlayerPrevBtn").click();
+  assertEqual(track.textContent, firstTrack, "prev should return to the first beat");
+
+  const loopBtn = doc.getElementById("localPlayerLoopBtn");
+  const wasActive = loopBtn.classList.contains("active");
+  loopBtn.click();
+  assertEqual(loopBtn.classList.contains("active"), !wasActive, "loop button should toggle its active state");
+  assertEqual(doc.getElementById("localPlayerAudio").loop, !wasActive, "audio element's loop property should follow the toggle");
+
+  const fresh = await loadFreshApp();
+  try {
+    assertEqual(
+      fresh.doc.getElementById("localPlayerLoopBtn").classList.contains("active"),
+      !wasActive,
+      "loop preference should persist across a reload"
+    );
+  } finally {
+    fresh.iframe.remove();
+  }
 });
 
 // ---- runner ----
