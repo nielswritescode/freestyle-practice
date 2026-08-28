@@ -374,6 +374,7 @@ input[type="range"]:focus-visible{outline:2px solid var(--accent); outline-offse
 #slantToggleRow[hidden]{display:none;}
 #slantRatioRow[hidden]{display:none;}
 #slantMinScoreRow[hidden]{display:none;}
+#categoryRow[hidden]{display:none;}
 #collabOptionsRow[hidden]{display:none;}
 
 .collab-swatches{

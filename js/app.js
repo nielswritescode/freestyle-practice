@@ -99,6 +99,27 @@
   const SENSITIVE_MODES = ["off", "on", "only"];
   let sensitiveWordMode = "on";
 
+  // Word categories: each pill is an independent on/off toggle (not
+  // exclusive like the sensitive-mode pills), so a word passes the filter
+  // if it belongs to ANY enabled category. "other" is a catch-all, not a
+  // curated list — see wordCategoriesOf below and data/word-categories.js.
+  // English-only for now (that data file only has an `en` entry); other
+  // languages skip this filter entirely in filterPool rather than having
+  // every word fall into "other" and risk an empty pool if that's disabled.
+  const CATEGORY_LIST = [
+    { id: "spiritual", label: "Spiritual" },
+    { id: "food", label: "Food" },
+    { id: "animals", label: "Animals" },
+    { id: "work", label: "Work" },
+    { id: "love", label: "Love" },
+    { id: "money", label: "Money" },
+    { id: "nature", label: "Nature" },
+    { id: "body", label: "Body" },
+    { id: "street", label: "Street" },
+    { id: "other", label: "Other" },
+  ];
+  let enabledCategories = new Set(CATEGORY_LIST.map((c) => c.id));
+
   const VALID_THEMES = ["dark", "light", "magenta", "neon-purple", "neon"];
   let currentTheme = "dark";
 
@@ -185,6 +206,10 @@
       slantMinScorePos = stored.slantMinScorePos;
     }
     if (SENSITIVE_MODES.includes(stored.sensitiveWordMode)) sensitiveWordMode = stored.sensitiveWordMode;
+    if (Array.isArray(stored.enabledCategories)) {
+      const knownIds = new Set(CATEGORY_LIST.map((c) => c.id));
+      enabledCategories = new Set(stored.enabledCategories.filter((c) => knownIds.has(c)));
+    }
     if (VALID_THEMES.includes(stored.theme)) currentTheme = stored.theme;
     if (TIMER_SOUNDS.includes(stored.timerSound)) timerSound = stored.timerSound;
     if (typeof stored.timerVolume === "number" && stored.timerVolume >= 0 && stored.timerVolume <= 1) {
@@ -232,6 +257,7 @@
         minSyllables,
         maxSyllables,
         sensitiveWordMode,
+        enabledCategories: [...enabledCategories],
         theme: currentTheme,
         timerSound,
         timerVolume,
@@ -326,6 +352,8 @@
   const sylHandleMax = document.getElementById("sylHandleMax");
   const sylRangeValue = document.getElementById("sylRangeValue");
   const sensitiveModePills = document.querySelectorAll(".sensitive-mode-pill");
+  const categoryRow = document.getElementById("categoryRow");
+  const categoryPills = document.querySelectorAll(".category-pill");
   const practicesPanel = document.getElementById("practicesPanel");
   const practicesButtonRow = document.getElementById("practicesButtonRow");
   const themeSwatches = document.querySelectorAll(".theme-swatch");
@@ -413,11 +441,32 @@
       .map(([lang, words]) => [lang, new Set(words)])
   );
 
-  // Applies the syllable range, word-deletion list, and (in "on" mode) the
-  // sensitive-words exclusion to a raw word pool. Called on each tier/CSV
-  // pool before sampling (rather than on the final generated pairs) so
-  // proportions from the difficulty slider still hold, and so a pair never
-  // gets built around a word that's about to be filtered out anyway.
+  const wordCategorySets = Object.fromEntries(
+    Object.entries(typeof WORD_CATEGORIES !== "undefined" ? WORD_CATEGORIES : {})
+      .map(([lang, cats]) => [lang, Object.fromEntries(
+        Object.entries(cats).map(([id, words]) => [id, new Set(words)])
+      )])
+  );
+
+  // A word can land in more than one curated category (e.g. "bread" is both
+  // Food and Money slang) — this returns every match, or ["other"] when the
+  // word isn't in any curated list for the current language.
+  function wordCategoriesOf(word) {
+    const cats = wordCategorySets[currentLanguage];
+    if (!cats) return ["other"];
+    const matches = [];
+    for (const id in cats) {
+      if (cats[id].has(word)) matches.push(id);
+    }
+    return matches.length ? matches : ["other"];
+  }
+
+  // Applies the syllable range, word-deletion list, category filter, and
+  // (in "on" mode) the sensitive-words exclusion to a raw word pool. Called
+  // on each tier/CSV pool before sampling (rather than on the final
+  // generated pairs) so proportions from the difficulty slider still hold,
+  // and so a pair never gets built around a word that's about to be
+  // filtered out anyway.
   // "only" mode is deliberately NOT handled here — see generateSensitiveOnlyPairs.
   function filterPool(pool) {
     let out = pool;
@@ -432,6 +481,12 @@
     if (sensitiveWordMode === "on") {
       const blocked = sensitiveWordSets[currentLanguage];
       if (blocked && blocked.size) out = out.filter((w) => !blocked.has(w));
+    }
+    // English-only (see wordCategoriesOf) — other languages have no curated
+    // data, so applying this there would put every word under "other" and
+    // risk emptying the pool if that single bucket got disabled.
+    if (currentLanguage === "en" && enabledCategories.size < CATEGORY_LIST.length) {
+      out = out.filter((w) => wordCategoriesOf(w).some((c) => enabledCategories.has(c)));
     }
     return out;
   }
@@ -449,6 +504,9 @@
     if (maxSyllables < SYLLABLE_SLIDER_MAX) out = out.filter((w) => countSyllables(w) <= maxSyllables);
     const deleted = deletedWordSets[currentLanguage];
     if (deleted && deleted.size) out = out.filter((w) => !deleted.has(w));
+    if (currentLanguage === "en" && enabledCategories.size < CATEGORY_LIST.length) {
+      out = out.filter((w) => wordCategoriesOf(w).some((c) => enabledCategories.has(c)));
+    }
     return out;
   }
 
@@ -593,6 +651,9 @@
     // rather than offer a feature that doesn't hold up.
     slantToggleRow.hidden = !slantDbForCurrentLanguage();
     updateSlantOptionsUI();
+    // Word categories are English-only too (see wordCategoriesOf) — hide
+    // the row rather than show pills that would have no effect.
+    categoryRow.hidden = currentLanguage !== "en";
   }
 
   // The ratio/min-score sliders only make sense once slant rhymes are both
@@ -876,6 +937,24 @@
     btn.addEventListener("click", () => {
       sensitiveWordMode = btn.dataset.sensitiveMode;
       updateSensitiveModeUI();
+      saveSettings();
+      generate();
+    });
+  });
+
+  // Unlike the sensitive-mode pills, these aren't mutually exclusive — each
+  // one independently toggles its own category in/out of enabledCategories.
+  function updateCategoryUI() {
+    categoryPills.forEach((btn) => {
+      btn.classList.toggle("active", enabledCategories.has(btn.dataset.category));
+    });
+  }
+  categoryPills.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const id = btn.dataset.category;
+      if (enabledCategories.has(id)) enabledCategories.delete(id);
+      else enabledCategories.add(id);
+      updateCategoryUI();
       saveSettings();
       generate();
     });
@@ -2059,6 +2138,7 @@
   renderDiffUI();
   renderSyllableUI();
   updateSensitiveModeUI();
+  updateCategoryUI();
   applyTheme();
   updatePlaylistVisibility();
   updateHideUiUI();

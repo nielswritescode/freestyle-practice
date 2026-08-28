@@ -35,3 +35,33 @@ direction for you (Niels) to decide on, not things I've changed unilaterally.
   "python3 isn't runnable" message. Worth also trying `python` as a fallback,
   or sanity-checking `python3 --version` up front and printing its stderr if
   the server never responds?
+
+# Found while adding word categories
+
+- **The smoke-test title-truncation bug (above) reproduces well before 35
+  tests, and there's now a workaround worth keeping.** Hit it again at the
+  existing 35-test baseline (not just after adding more) — `report.py` threw
+  a base64 decode error with no other signal. Instead of touching the title
+  transport, I drove `test/run.sh`'s Chrome instance directly over its
+  DevTools websocket (`Runtime.evaluate` against `document.getElementById
+  ('output').innerText`, polling `#summary` for "Running…" to know when to
+  read it) — bypasses the title size cap entirely and gives full pass/fail
+  text every time. Worth turning that into the actual fix for `report.py`
+  instead of the title-encoding scheme, rather than something each session
+  reinvents?
+
+- **A conditionally-hidden `.row` silently fails to hide unless someone
+  remembers to add a matching `#id[hidden]{display:none;}` override.**
+  `.row{display:flex}` in data/styles.css beats the browser's default
+  `[hidden]{display:none}` rule (same specificity, but `.row` is an author
+  rule and wins over the user-agent stylesheet), so `someRow.hidden = true`
+  in JS is a silent no-op unless that row's id has its own `[hidden]`
+  override — see the four existing ones (`#slantToggleRow`,
+  `#collabOptionsRow`, etc.) and the one I had to add for `#categoryRow`
+  this session, caught only because a smoke test checked
+  `getComputedStyle(...).display` rather than the `hidden` property itself.
+  This is the second time this exact bug class has bitten a feature (the
+  test suite comment already calls it out from an earlier session). Worth a
+  general `.row[hidden]{display:none;}` rule instead of enumerating IDs one
+  at a time, so the next conditionally-hidden row doesn't need anyone to
+  remember this?
