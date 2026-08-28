@@ -495,7 +495,14 @@
     const pool = activeWordList().concat(sensitiveWords);
     const abundant = generatePairs(pool, Number.MAX_SAFE_INTEGER, types, getKey, slantDbForCurrentLanguage(), slantRatio);
     return abundant
-      .filter((p) => blocked.has(p.a) || blocked.has(p.b))
+      // Exactly one side flagged, not "at least one" — a handful of words
+      // (e.g. "bullshit", "git") exist in both the normal library and the
+      // blocklist, since filterPool() deliberately doesn't strip blocked
+      // words out of the normal pool here (comment above), so two
+      // different blocked words can otherwise rhyme together and both
+      // pass an `||` check. The masking logic below assumes exactly one
+      // side is the sensitive word.
+      .filter((p) => blocked.has(p.a) !== blocked.has(p.b))
       .slice(0, selectedCount)
       // The sensitive word always ends up in slot "a": every reveal mode
       // only ever masks or hides slot "b" (maskedDisplay, and the
