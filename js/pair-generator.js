@@ -161,25 +161,37 @@ function generatePairs(words, count, allowedTypes, getKey, slantDb, slantRatio) 
     return results;
   }
 
-  // Ratio-driven interleaving: at each draw, pull from whichever pool is
-  // furthest behind its target share of the results so far (deficit round
-  // robin), falling back to the other pool once one runs dry.
+  // Ratio-driven interleaving: which pool each result slot should prefer is
+  // decided by a shuffled plan up front, rather than a deterministic
+  // formula — a fixed formula (e.g. "draw slant whenever behind schedule")
+  // ends up scheduling slant draws at the same periodic positions every
+  // time (always slot 1, 4, 7, ... for a given ratio), so slant rhymes kept
+  // landing in the same spots in the list across generations. Shuffling the
+  // plan keeps the overall slant/perfect split close to the target ratio
+  // while randomizing where in the list it lands. Falls back to whichever
+  // pool still has edges once the other runs dry, same as before.
   const slantCursor = makeCursor(slantEdges);
   const otherCursor = makeCursor(otherEdges);
-  let slantDrawn = 0, totalDrawn = 0;
+
+  // words.length safely bounds how many pairs could ever be produced (each
+  // pair consumes 2 distinct words), so it caps the plan even when count is
+  // effectively unbounded (see the Number.MAX_SAFE_INTEGER "abundant" call
+  // site in app.js).
+  const planLength = Math.min(count, words.length);
+  const targetSlant = Math.round(planLength * slantRatio / 100);
+  const plan = shuffle(Array.from({ length: planLength }, (_, i) => i < targetSlant));
 
   while (results.length < count) {
     const slantAvail = slantCursor.hasAny();
     const otherAvail = otherCursor.hasAny();
     if (!slantAvail && !otherAvail) break;
-    const useSlant = !otherAvail || (slantAvail && slantDrawn < (totalDrawn + 1) * slantRatio / 100);
+    const wantSlant = plan[Math.min(results.length, plan.length - 1)];
+    const useSlant = !otherAvail || (slantAvail && wantSlant);
     const cursor = useSlant ? slantCursor : otherCursor;
     const pair = tryBuildPair(cursor.peek(), groupList, remaining, usedWords);
     if (!pair) { cursor.drop(); continue; }
     cursor.advance();
     results.push(pair);
-    totalDrawn++;
-    if (useSlant) slantDrawn++;
   }
 
   return results;
