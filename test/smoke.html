@@ -100,14 +100,14 @@ test("broad click sweep across every major control throws no errors", async (doc
   doc.getElementById("guidelinesDetails").open = true;
   doc.getElementById("advancedDetails").open = true;
   const selectors = [
-    ".lang-pill", ".count-pill", ".sensitive-mode-pill", ".reveal-mode-pill",
+    ".lang-pill", ".count-pill", ".sensitive-mode-pill", ".category-pill", ".reveal-mode-pill",
     ".def-style-pill", ".practice-pill", ".timer-mode-pill", ".theme-swatch",
     ".timer-duration-btn", "#timerLoopBtn", "#timerReturnBtn", "#timerConfirmBtn",
     "#timerSoundPreviewBtn", ".timer-sound-pill", "#showAllDefsBtn", "#csvResetBtn",
     "#csvExampleBtn", "#refreshBtnTop", "#refreshBtnBottom", "#playlistToggle",
     "#autoRefreshToggle", "#downloadDeletedBtn", "#clearDeletedBtn", "#showTimerBtn",
     "#hideUiBtn", "#localPlayerPrevBtn", "#localPlayerPlayBtn", "#localPlayerNextBtn",
-    "#localPlayerLoopBtn",
+    "#localPlayerLoopBtn", "#collabToggle",
   ];
   let clicked = 0;
   for (const sel of selectors) {
@@ -655,6 +655,172 @@ test("local player next/prev cycle through beats and the loop toggle persists", 
       !wasActive,
       "loop preference should persist across a reload"
     );
+  } finally {
+    fresh.iframe.remove();
+  }
+});
+
+// ---- collab mode ----
+
+// Mirrors js/app.js's COLLAB_COLORS — colors (not a "P1"/"P2" chip) are
+// what identify a card's person, so tests read the --collab-color custom
+// property a card was assigned rather than any on-card label.
+const COLLAB_COLORS = [
+  "#e6194b", "#3cb44b", "#4363d8", "#f58231",
+  "#911eb4", "#2f9e9e", "#cf3f9e", "#8b5a2b",
+];
+function collabColorsOf(doc) {
+  return [...doc.querySelectorAll(".pair-card")].map((el) => el.style.getPropertyValue("--collab-color").trim());
+}
+
+test("collab mode checkbox reveals options with default count 2", async (doc) => {
+  assertEqual(displayOf(doc.getElementById("collabOptionsRow")), "none", "collab options row should start hidden");
+  assertEqual(doc.querySelectorAll(".pair-card.collab-pair").length, 0, "no pair cards should carry a collab color before enabling collab mode");
+
+  doc.getElementById("collabToggle").click();
+  assertEqual(displayOf(doc.getElementById("collabOptionsRow")), "flex", "collab options row should show once enabled");
+  assertEqual(doc.getElementById("collabCountInput").value, "2", "should default to 2 collaborators");
+  assertEqual(doc.querySelectorAll("#collabSwatches .collab-swatch").length, 2, "should show 2 color swatches by default");
+
+  doc.getElementById("collabToggle").click();
+  assertEqual(displayOf(doc.getElementById("collabOptionsRow")), "none", "collab options row should hide again once disabled");
+});
+
+test("collab mode colors pairs into contiguous per-person turns", async (doc) => {
+  doc.getElementById("collabToggle").click();
+  const colors = collabColorsOf(doc);
+  assertEqual(colors.length, 20, "every pair card should get a collab color once enabled");
+  assert(colors.slice(0, 10).every((c) => c === COLLAB_COLORS[0]), "first 10 pairs (20/2) should belong to person 1, got " + colors.join(","));
+  assert(colors.slice(10, 20).every((c) => c === COLLAB_COLORS[1]), "next 10 pairs should belong to person 2, got " + colors.join(","));
+  assert(doc.querySelector(".pair-card").classList.contains("collab-pair"), "pair cards should get the collab-pair class for their coloring");
+});
+
+test("changing collaborator count updates swatches and color distribution", async (doc) => {
+  doc.getElementById("collabToggle").click();
+  const input = doc.getElementById("collabCountInput");
+  input.value = "4";
+  input.dispatchEvent(new Event("change", { bubbles: true }));
+  assertEqual(doc.querySelectorAll("#collabSwatches .collab-swatch").length, 4, "should show 4 swatches after raising the count");
+
+  const colors = collabColorsOf(doc);
+  assert(colors.slice(0, 5).every((c) => c === COLLAB_COLORS[0]), "first chunk (20/4=5) should belong to person 1, got " + colors.join(","));
+  assert(colors.slice(5, 10).every((c) => c === COLLAB_COLORS[1]), "second chunk should belong to person 2, got " + colors.join(","));
+  assert(colors.slice(15, 20).every((c) => c === COLLAB_COLORS[3]), "last chunk should belong to person 4, got " + colors.join(","));
+});
+
+test("uneven division carries the in-progress turn into the next refresh instead of restarting", async (doc) => {
+  doc.getElementById("collabToggle").click();
+  const input = doc.getElementById("collabCountInput");
+  input.value = "3";
+  input.dispatchEvent(new Event("change", { bubbles: true }));
+
+  // chunk = floor(20/3) = 6: P1 x6, P2 x6, P3 x6, leaving 2 leftover pairs
+  // that start person 1's next turn rather than splitting unevenly here.
+  const batch1 = collabColorsOf(doc);
+  assertEqual(batch1.length, 20);
+  assert(batch1.slice(0, 6).every((c) => c === COLLAB_COLORS[0]), "pairs 1-6 should be person 1's turn, got " + batch1.join(","));
+  assert(batch1.slice(6, 12).every((c) => c === COLLAB_COLORS[1]), "pairs 7-12 should be person 2's turn, got " + batch1.join(","));
+  assert(batch1.slice(12, 18).every((c) => c === COLLAB_COLORS[2]), "pairs 13-18 should be person 3's turn, got " + batch1.join(","));
+  assert(batch1.slice(18, 20).every((c) => c === COLLAB_COLORS[0]), "the 2 leftover pairs should start person 1's next turn, got " + batch1.join(","));
+
+  doc.getElementById("refreshBtnTop").click();
+
+  // Person 1's turn (2 pairs in from batch 1) carries over: 4 more pairs
+  // complete it before the rotation continues to person 2, then 3, then
+  // wraps back to person 1 for the remainder.
+  const batch2 = collabColorsOf(doc);
+  assertEqual(batch2.length, 20);
+  assert(batch2.slice(0, 4).every((c) => c === COLLAB_COLORS[0]), "the first 4 pairs of the next batch should complete person 1's carried-over turn, got " + batch2.join(","));
+  assert(batch2.slice(4, 10).every((c) => c === COLLAB_COLORS[1]), "person 2's turn should follow, got " + batch2.join(","));
+  assert(batch2.slice(10, 16).every((c) => c === COLLAB_COLORS[2]), "person 3's turn should follow, got " + batch2.join(","));
+  assert(batch2.slice(16, 20).every((c) => c === COLLAB_COLORS[0]), "rotation should continue back to person 1 for the remainder, got " + batch2.join(","));
+});
+
+test("collab mode enabled state and collaborator count persist across a reload", async (doc) => {
+  doc.getElementById("collabToggle").click();
+  const input = doc.getElementById("collabCountInput");
+  input.value = "5";
+  input.dispatchEvent(new Event("change", { bubbles: true }));
+  await sleep(50);
+
+  const fresh = await loadFreshApp();
+  try {
+    assert(fresh.doc.getElementById("collabToggle").checked, "collab mode should persist as enabled");
+    assertEqual(fresh.doc.getElementById("collabCountInput").value, "5", "collaborator count should persist");
+    assertEqual(fresh.doc.querySelectorAll("#collabSwatches .collab-swatch").length, 5, "swatches should reflect the persisted count on reload");
+  } finally {
+    fresh.iframe.remove();
+  }
+});
+
+// ---- word categories ----
+
+// Mirrors the "animals" list in data/word-categories.js, used to check that
+// isolating to one category actually restricts the generated pool to it.
+const ANIMALS_CATEGORY_WORDS = new Set([
+  "ant", "bat", "bear", "beast", "bee", "beetle", "bird", "birds", "bison", "buffalo",
+  "bull", "butterflies", "butterfly", "cat", "chicken", "cow", "crab", "crow", "crows",
+  "deer", "dog", "dogs", "dolphin", "donkey", "duck", "eagle", "elephant", "elk", "falcon",
+  "fish", "flock", "flocks", "fox", "frog", "geese", "giraffes", "goat", "gorilla", "hawk",
+  "herd", "herds", "horse", "horses", "hound", "hounds", "hyena", "jaguar", "kangaroos",
+  "kitten", "lion", "lizard", "lobster", "mice", "monkey", "moose", "moth", "mouse",
+  "mule", "octopus", "owl", "peacocks", "penguin", "pet", "pets", "pig", "pony",
+  "predator", "prey", "puppy", "rabbit", "raccoon", "rat", "raven", "robin", "shark",
+  "sheep", "shrimp", "skunk", "snake", "snakes", "sparrow", "spider", "squirrel", "tiger",
+  "turtle", "whale", "wolf", "zebra",
+]);
+function pairWordsOf(doc) {
+  return [...doc.querySelectorAll(".pair-card .word")].map((el) => el.textContent.trim().toLowerCase());
+}
+// Clicks each category pill to whatever on/off state `wanted` (a Set of
+// category ids to enable) says it should be, only clicking pills that are
+// actually changing state — a blind click-every-pill loop double-toggles
+// pills already in the target state instead of leaving them alone.
+function setCategories(doc, wanted) {
+  doc.querySelectorAll(".category-pill").forEach((btn) => {
+    const shouldBeOn = wanted.has(btn.dataset.category);
+    if (btn.classList.contains("active") !== shouldBeOn) btn.click();
+  });
+}
+
+test("word categories default to all enabled, and the row is English-only", async (doc) => {
+  const pills = doc.querySelectorAll(".category-pill");
+  assertEqual(pills.length, 10, "expected all 10 category pills");
+  assert([...pills].every((btn) => btn.classList.contains("active")), "every category should start enabled");
+  assertEqual(displayOf(doc.getElementById("categoryRow")), "flex", "category row should be visible for English");
+
+  doc.querySelector('.lang-pill[data-lang="nl"]').click();
+  assertEqual(displayOf(doc.getElementById("categoryRow")), "none", "category row should hide for a non-English language");
+
+  doc.querySelector('.lang-pill[data-lang="en"]').click();
+  assertEqual(displayOf(doc.getElementById("categoryRow")), "flex", "category row should reappear back on English");
+  assert([...doc.querySelectorAll(".category-pill")].every((btn) => btn.classList.contains("active")), "category selection should be untouched by the language round-trip");
+});
+
+test("enabling only one category restricts generated pairs to that category's words", async (doc) => {
+  setCategories(doc, new Set(["animals"]));
+  const words = pairWordsOf(doc);
+  assert(words.length > 0, "expected at least one pair from the animals-only pool");
+  assert(words.every((w) => ANIMALS_CATEGORY_WORDS.has(w)), "every generated word should be tagged animals, got " + words.join(","));
+});
+
+test("disabling every category yields the empty state", async (doc) => {
+  setCategories(doc, new Set());
+  assertEqual(doc.querySelectorAll(".pair-card").length, 0, "no pairs should be generated with every category disabled");
+  assert(!!doc.querySelector(".empty-state"), "the empty-state message should show instead");
+});
+
+test("category toggles persist across a reload", async (doc) => {
+  setCategories(doc, new Set(["food", "animals"]));
+  await sleep(50);
+
+  const fresh = await loadFreshApp();
+  try {
+    const active = new Set(
+      [...fresh.doc.querySelectorAll(".category-pill.active")].map((btn) => btn.dataset.category)
+    );
+    assertEqual(active.size, 2, "expected exactly 2 categories to persist as enabled, got " + [...active].join(","));
+    assert(active.has("food") && active.has("animals"), "food and animals should be the persisted enabled categories");
   } finally {
     fresh.iframe.remove();
   }

@@ -102,6 +102,27 @@
   const SENSITIVE_MODES = ["off", "on", "only"];
   let sensitiveWordMode = "on";
 
+  // Word categories: each pill is an independent on/off toggle (not
+  // exclusive like the sensitive-mode pills), so a word passes the filter
+  // if it belongs to ANY enabled category. "other" is a catch-all, not a
+  // curated list — see wordCategoriesOf below and data/word-categories.js.
+  // English-only for now (that data file only has an `en` entry); other
+  // languages skip this filter entirely in filterPool rather than having
+  // every word fall into "other" and risk an empty pool if that's disabled.
+  const CATEGORY_LIST = [
+    { id: "spiritual", label: "Spiritual" },
+    { id: "food", label: "Food" },
+    { id: "animals", label: "Animals" },
+    { id: "work", label: "Work" },
+    { id: "love", label: "Love" },
+    { id: "money", label: "Money" },
+    { id: "nature", label: "Nature" },
+    { id: "body", label: "Body" },
+    { id: "street", label: "Street" },
+    { id: "other", label: "Other" },
+  ];
+  let enabledCategories = new Set(CATEGORY_LIST.map((c) => c.id));
+
   const VALID_THEMES = ["dark", "light", "magenta", "neon-purple", "neon"];
   let currentTheme = "dark";
 
@@ -116,6 +137,16 @@
 
   let metronomeBpm = 120; // persisted, like timerVolume — a preference, not session state
   let metronomeVolume = 0.7; // 0..1, persisted the same way as timerVolume
+
+  // Collab mode: x people rhyme together sequentially, each pair-card
+  // colored by whose turn it is. collabEnabled only seeds the checkbox at
+  // init (see the playlistVisible pattern above) — collabToggle.checked is
+  // the source of truth afterward. See assignCollabColors below for how
+  // pairs are split into per-person turns.
+  let collabEnabled = false;
+  let collabCount = 2;
+  const COLLAB_MIN = 2;
+  const COLLAB_MAX = 8;
 
   // ---- persisted settings ----
   // Everything here is a user preference, not session data (a CSV upload
@@ -190,6 +221,10 @@
       slantMinScorePos = stored.slantMinScorePos;
     }
     if (SENSITIVE_MODES.includes(stored.sensitiveWordMode)) sensitiveWordMode = stored.sensitiveWordMode;
+    if (Array.isArray(stored.enabledCategories)) {
+      const knownIds = new Set(CATEGORY_LIST.map((c) => c.id));
+      enabledCategories = new Set(stored.enabledCategories.filter((c) => knownIds.has(c)));
+    }
     if (VALID_THEMES.includes(stored.theme)) currentTheme = stored.theme;
     if (TIMER_SOUNDS.includes(stored.timerSound)) timerSound = stored.timerSound;
     if (typeof stored.timerVolume === "number" && stored.timerVolume >= 0 && stored.timerVolume <= 1) {
@@ -210,6 +245,10 @@
     }
     if (typeof stored.metronomeVolume === "number" && stored.metronomeVolume >= 0 && stored.metronomeVolume <= 1) {
       metronomeVolume = stored.metronomeVolume;
+    }
+    if (typeof stored.collabEnabled === "boolean") collabEnabled = stored.collabEnabled;
+    if (typeof stored.collabCount === "number" && stored.collabCount >= COLLAB_MIN && stored.collabCount <= COLLAB_MAX) {
+      collabCount = stored.collabCount;
     }
   }
 
@@ -236,6 +275,7 @@
         minSyllables,
         maxSyllables,
         sensitiveWordMode,
+        enabledCategories: [...enabledCategories],
         theme: currentTheme,
         timerSound,
         timerVolume,
@@ -245,6 +285,8 @@
         timerLoop,
         metronomeBpm,
         metronomeVolume,
+        collabEnabled: collabToggle.checked,
+        collabCount,
         deletedWordsByLang: Object.fromEntries(
           Object.entries(deletedWordSets).map(([lang, set]) => [lang, [...set]])
         ),
@@ -299,6 +341,10 @@
   const localPlayerVolumeSlider = document.getElementById("localPlayerVolumeSlider");
   const localPlayerVolumeValue = document.getElementById("localPlayerVolumeValue");
   const localPlayerAudio = document.getElementById("localPlayerAudio");
+  const collabToggle = document.getElementById("collabToggle");
+  const collabOptionsRow = document.getElementById("collabOptionsRow");
+  const collabCountInput = document.getElementById("collabCountInput");
+  const collabSwatches = document.getElementById("collabSwatches");
   const guidelinesDetails = document.getElementById("guidelinesDetails");
   const advancedDetails = document.getElementById("advancedDetails");
   const revealModePills = document.querySelectorAll(".reveal-mode-pill");
@@ -333,6 +379,8 @@
   const sylHandleMax = document.getElementById("sylHandleMax");
   const sylRangeValue = document.getElementById("sylRangeValue");
   const sensitiveModePills = document.querySelectorAll(".sensitive-mode-pill");
+  const categoryRow = document.getElementById("categoryRow");
+  const categoryPills = document.querySelectorAll(".category-pill");
   const practicesPanel = document.getElementById("practicesPanel");
   const practicesButtonRow = document.getElementById("practicesButtonRow");
   const themeSwatches = document.querySelectorAll(".theme-swatch");
@@ -420,11 +468,32 @@
       .map(([lang, words]) => [lang, new Set(words)])
   );
 
-  // Applies the syllable range, word-deletion list, and (in "on" mode) the
-  // sensitive-words exclusion to a raw word pool. Called on each tier/CSV
-  // pool before sampling (rather than on the final generated pairs) so
-  // proportions from the difficulty slider still hold, and so a pair never
-  // gets built around a word that's about to be filtered out anyway.
+  const wordCategorySets = Object.fromEntries(
+    Object.entries(typeof WORD_CATEGORIES !== "undefined" ? WORD_CATEGORIES : {})
+      .map(([lang, cats]) => [lang, Object.fromEntries(
+        Object.entries(cats).map(([id, words]) => [id, new Set(words)])
+      )])
+  );
+
+  // A word can land in more than one curated category (e.g. "bread" is both
+  // Food and Money slang) — this returns every match, or ["other"] when the
+  // word isn't in any curated list for the current language.
+  function wordCategoriesOf(word) {
+    const cats = wordCategorySets[currentLanguage];
+    if (!cats) return ["other"];
+    const matches = [];
+    for (const id in cats) {
+      if (cats[id].has(word)) matches.push(id);
+    }
+    return matches.length ? matches : ["other"];
+  }
+
+  // Applies the syllable range, word-deletion list, category filter, and
+  // (in "on" mode) the sensitive-words exclusion to a raw word pool. Called
+  // on each tier/CSV pool before sampling (rather than on the final
+  // generated pairs) so proportions from the difficulty slider still hold,
+  // and so a pair never gets built around a word that's about to be
+  // filtered out anyway.
   // "only" mode is deliberately NOT handled here — see generateSensitiveOnlyPairs.
   function filterPool(pool) {
     let out = pool;
@@ -439,6 +508,12 @@
     if (sensitiveWordMode === "on") {
       const blocked = sensitiveWordSets[currentLanguage];
       if (blocked && blocked.size) out = out.filter((w) => !blocked.has(w));
+    }
+    // English-only (see wordCategoriesOf) — other languages have no curated
+    // data, so applying this there would put every word under "other" and
+    // risk emptying the pool if that single bucket got disabled.
+    if (currentLanguage === "en" && enabledCategories.size < CATEGORY_LIST.length) {
+      out = out.filter((w) => wordCategoriesOf(w).some((c) => enabledCategories.has(c)));
     }
     return out;
   }
@@ -456,6 +531,9 @@
     if (maxSyllables < SYLLABLE_SLIDER_MAX) out = out.filter((w) => countSyllables(w) <= maxSyllables);
     const deleted = deletedWordSets[currentLanguage];
     if (deleted && deleted.size) out = out.filter((w) => !deleted.has(w));
+    if (currentLanguage === "en" && enabledCategories.size < CATEGORY_LIST.length) {
+      out = out.filter((w) => wordCategoriesOf(w).some((c) => enabledCategories.has(c)));
+    }
     return out;
   }
 
@@ -607,6 +685,9 @@
     // rather than offer a feature that doesn't hold up.
     slantToggleRow.hidden = !slantDbForCurrentLanguage();
     updateSlantOptionsUI();
+    // Word categories are English-only too (see wordCategoriesOf) — hide
+    // the row rather than show pills that would have no effect.
+    categoryRow.hidden = currentLanguage !== "en";
   }
 
   // The ratio/min-score sliders only make sense once slant rhymes are both
@@ -890,6 +971,24 @@
     btn.addEventListener("click", () => {
       sensitiveWordMode = btn.dataset.sensitiveMode;
       updateSensitiveModeUI();
+      saveSettings();
+      generate();
+    });
+  });
+
+  // Unlike the sensitive-mode pills, these aren't mutually exclusive — each
+  // one independently toggles its own category in/out of enabledCategories.
+  function updateCategoryUI() {
+    categoryPills.forEach((btn) => {
+      btn.classList.toggle("active", enabledCategories.has(btn.dataset.category));
+    });
+  }
+  categoryPills.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const id = btn.dataset.category;
+      if (enabledCategories.has(id)) enabledCategories.delete(id);
+      else enabledCategories.add(id);
+      updateCategoryUI();
       saveSettings();
       generate();
     });
@@ -1813,6 +1912,68 @@
     }
   }
 
+  // Collab mode: each freshly generated batch is split into contiguous
+  // per-person turns sized to selectedCount/collabCount. collabPerson/
+  // collabOffset are deliberately module-level (not reset per batch) so
+  // that when a batch doesn't divide evenly, the in-progress turn carries
+  // into the next generate() call instead of restarting at person 1 —
+  // requested explicitly: turns should stay contiguous across refreshes.
+  const COLLAB_COLORS = [
+    "#e6194b", "#3cb44b", "#4363d8", "#f58231",
+    "#911eb4", "#2f9e9e", "#cf3f9e", "#8b5a2b",
+  ];
+  let collabPerson = 0;
+  let collabOffset = 0;
+
+  function resetCollabRotation() {
+    collabPerson = 0;
+    collabOffset = 0;
+  }
+
+  function assignCollabColors(pairs) {
+    const chunkSize = Math.max(1, Math.floor(selectedCount / collabCount));
+    for (const p of pairs) {
+      p.collabPerson = collabPerson;
+      collabOffset++;
+      if (collabOffset >= chunkSize) {
+        collabOffset = 0;
+        collabPerson = (collabPerson + 1) % collabCount;
+      }
+    }
+  }
+
+  function updateCollabOptionsUI() {
+    collabOptionsRow.hidden = !collabToggle.checked;
+    collabCountInput.value = String(collabCount);
+    collabSwatches.innerHTML = "";
+    for (let i = 0; i < collabCount; i++) {
+      const dot = document.createElement("span");
+      dot.className = "collab-swatch";
+      dot.style.background = COLLAB_COLORS[i % COLLAB_COLORS.length];
+      dot.textContent = String(i + 1);
+      collabSwatches.appendChild(dot);
+    }
+  }
+
+  collabToggle.addEventListener("change", () => {
+    updateCollabOptionsUI();
+    resetCollabRotation();
+    if (collabToggle.checked) assignCollabColors(currentPairs);
+    renderPairs(currentPairs, selectedCount);
+    saveSettings();
+  });
+
+  collabCountInput.addEventListener("change", () => {
+    collabCount = clamp(parseInt(collabCountInput.value, 10) || COLLAB_MIN, COLLAB_MIN, COLLAB_MAX);
+    updateCollabOptionsUI();
+    resetCollabRotation();
+    if (collabToggle.checked) {
+      assignCollabColors(currentPairs);
+      renderPairs(currentPairs, selectedCount);
+    }
+    saveSettings();
+  });
+
   function renderPairs(pairs, requested) {
     pairsContainer.innerHTML = "";
     if (pairs.length === 0) {
@@ -1820,9 +1981,15 @@
       countInfo.textContent = "";
       return;
     }
+    const showCollab = collabToggle.checked;
     pairs.forEach((p, idx) => {
       const card = document.createElement("div");
       card.className = "pair-card";
+      const hasCollabColor = showCollab && typeof p.collabPerson === "number";
+      if (hasCollabColor) {
+        card.classList.add("collab-pair");
+        card.style.setProperty("--collab-color", COLLAB_COLORS[p.collabPerson % COLLAB_COLORS.length]);
+      }
       card.innerHTML = `
         <div class="pair-idx">${String(idx + 1).padStart(2, "0")}</div>
         <div class="pair-words">
@@ -1849,6 +2016,7 @@
       ? generateSensitiveOnlyPairs(types, getKey)
       : generatePairs(activeWordList(), selectedCount, types, getKey, slantDbForCurrentLanguage(), slantRatio);
     currentPairs = pairs;
+    if (collabToggle.checked) assignCollabColors(pairs);
     renderPairs(pairs, selectedCount);
     if (scroll) scrollToResults();
   }
@@ -2057,6 +2225,8 @@
   updateLocalPlayerLoopUI();
   updateLocalPlayerVolumeUI();
   updatePlaylistSource();
+  collabToggle.checked = collabEnabled;
+  updateCollabOptionsUI();
   if (customCountActive) customCountInput.value = selectedCount;
   autoRefreshToggle.checked = autoRefreshEnabled;
   autoRefreshSecondsInput.value = autoRefreshSeconds;
@@ -2069,6 +2239,7 @@
   renderDiffUI();
   renderSyllableUI();
   updateSensitiveModeUI();
+  updateCategoryUI();
   applyTheme();
   updatePlaylistVisibility();
   updateHideUiUI();

@@ -394,6 +394,27 @@ input[type="range"]:focus-visible{outline:2px solid var(--accent); outline-offse
 #slantToggleRow[hidden]{display:none;}
 #slantRatioRow[hidden]{display:none;}
 #slantMinScoreRow[hidden]{display:none;}
+#categoryRow[hidden]{display:none;}
+#collabOptionsRow[hidden]{display:none;}
+
+.collab-swatches{
+  display:flex;
+  gap:6px;
+  flex-wrap:wrap;
+}
+.collab-swatch{
+  width:26px;
+  height:26px;
+  border-radius:50%;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  font-family:'Space Grotesk',sans-serif;
+  font-size:11px;
+  font-weight:700;
+  color:#fff;
+  flex-shrink:0;
+}
 
 /* Practice timer — always a fixed bottom bar, on every screen size (not
    gated behind a max-width media query — that split turned out not to
@@ -850,6 +871,10 @@ a.share-btn.btn-ghost{display:inline-flex;}
   display:flex;
   align-items:center;
   gap:16px;
+}
+.pair-card.collab-pair{
+  background:color-mix(in srgb, var(--collab-color, var(--line)) 14%, var(--panel));
+  border-color:var(--collab-color, var(--line));
 }
 .pair-idx{
   font-family:'Space Grotesk',sans-serif;
