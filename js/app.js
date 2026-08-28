@@ -123,6 +123,20 @@
   ];
   let enabledCategories = new Set(CATEGORY_LIST.map((c) => c.id));
 
+  // Word type (part of speech): same independent-toggle, "any enabled tag
+  // keeps the word" shape as categories above — see wordPosOf and
+  // data/pos-data.js. Also English-only (that data file has no other-
+  // language coverage), and also skipped entirely in filterPool for other
+  // languages rather than dumping everything into "other".
+  const POS_LIST = [
+    { id: "noun", label: "Noun" },
+    { id: "verb", label: "Verb" },
+    { id: "adjective", label: "Adjective" },
+    { id: "adverb", label: "Adverb" },
+    { id: "other", label: "Other" },
+  ];
+  let enabledPos = new Set(POS_LIST.map((p) => p.id));
+
   const VALID_THEMES = ["dark", "light", "magenta", "neon-purple", "neon"];
   let currentTheme = "dark";
 
@@ -225,6 +239,10 @@
       const knownIds = new Set(CATEGORY_LIST.map((c) => c.id));
       enabledCategories = new Set(stored.enabledCategories.filter((c) => knownIds.has(c)));
     }
+    if (Array.isArray(stored.enabledPos)) {
+      const knownIds = new Set(POS_LIST.map((p) => p.id));
+      enabledPos = new Set(stored.enabledPos.filter((p) => knownIds.has(p)));
+    }
     if (VALID_THEMES.includes(stored.theme)) currentTheme = stored.theme;
     if (TIMER_SOUNDS.includes(stored.timerSound)) timerSound = stored.timerSound;
     if (typeof stored.timerVolume === "number" && stored.timerVolume >= 0 && stored.timerVolume <= 1) {
@@ -276,6 +294,7 @@
         maxSyllables,
         sensitiveWordMode,
         enabledCategories: [...enabledCategories],
+        enabledPos: [...enabledPos],
         theme: currentTheme,
         timerSound,
         timerVolume,
@@ -381,6 +400,8 @@
   const sensitiveModePills = document.querySelectorAll(".sensitive-mode-pill");
   const categoryRow = document.getElementById("categoryRow");
   const categoryPills = document.querySelectorAll(".category-pill");
+  const posRow = document.getElementById("posRow");
+  const posPills = document.querySelectorAll(".pos-pill");
   const practicesPanel = document.getElementById("practicesPanel");
   const practicesButtonRow = document.getElementById("practicesButtonRow");
   const themeSwatches = document.querySelectorAll(".theme-swatch");
@@ -488,6 +509,16 @@
     return matches.length ? matches : ["other"];
   }
 
+  // POS_DATA is already a flat word -> tags[] map (no per-language nesting,
+  // unlike WORD_CATEGORIES) since it's English-only to begin with — see
+  // POS_LIST above. A word with no entry (Datamuse returned no confident
+  // tag) falls under "other", same convention as wordCategoriesOf.
+  function wordPosOf(word) {
+    if (typeof POS_DATA === "undefined") return ["other"];
+    const tags = POS_DATA[word];
+    return tags && tags.length ? tags : ["other"];
+  }
+
   // Applies the syllable range, word-deletion list, category filter, and
   // (in "on" mode) the sensitive-words exclusion to a raw word pool. Called
   // on each tier/CSV pool before sampling (rather than on the final
@@ -515,6 +546,10 @@
     if (currentLanguage === "en" && enabledCategories.size < CATEGORY_LIST.length) {
       out = out.filter((w) => wordCategoriesOf(w).some((c) => enabledCategories.has(c)));
     }
+    // English-only (see wordPosOf) for the same reason as categories above.
+    if (currentLanguage === "en" && enabledPos.size < POS_LIST.length) {
+      out = out.filter((w) => wordPosOf(w).some((p) => enabledPos.has(p)));
+    }
     return out;
   }
 
@@ -533,6 +568,9 @@
     if (deleted && deleted.size) out = out.filter((w) => !deleted.has(w));
     if (currentLanguage === "en" && enabledCategories.size < CATEGORY_LIST.length) {
       out = out.filter((w) => wordCategoriesOf(w).some((c) => enabledCategories.has(c)));
+    }
+    if (currentLanguage === "en" && enabledPos.size < POS_LIST.length) {
+      out = out.filter((w) => wordPosOf(w).some((p) => enabledPos.has(p)));
     }
     return out;
   }
@@ -688,6 +726,8 @@
     // Word categories are English-only too (see wordCategoriesOf) — hide
     // the row rather than show pills that would have no effect.
     categoryRow.hidden = currentLanguage !== "en";
+    // Word type (POS) is English-only too (see wordPosOf).
+    posRow.hidden = currentLanguage !== "en";
   }
 
   // The ratio/min-score sliders only make sense once slant rhymes are both
@@ -989,6 +1029,23 @@
       if (enabledCategories.has(id)) enabledCategories.delete(id);
       else enabledCategories.add(id);
       updateCategoryUI();
+      saveSettings();
+      generate();
+    });
+  });
+
+  // Word type (POS): same independent-toggle shape as categories above.
+  function updatePosUI() {
+    posPills.forEach((btn) => {
+      btn.classList.toggle("active", enabledPos.has(btn.dataset.pos));
+    });
+  }
+  posPills.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const id = btn.dataset.pos;
+      if (enabledPos.has(id)) enabledPos.delete(id);
+      else enabledPos.add(id);
+      updatePosUI();
       saveSettings();
       generate();
     });
@@ -2242,6 +2299,7 @@
   renderSyllableUI();
   updateSensitiveModeUI();
   updateCategoryUI();
+  updatePosUI();
   applyTheme();
   updatePlaylistVisibility();
   updateHideUiUI();

@@ -100,7 +100,7 @@ test("broad click sweep across every major control throws no errors", async (doc
   doc.getElementById("guidelinesDetails").open = true;
   doc.getElementById("advancedDetails").open = true;
   const selectors = [
-    ".lang-pill", ".count-pill", ".sensitive-mode-pill", ".category-pill", ".reveal-mode-pill",
+    ".lang-pill", ".count-pill", ".sensitive-mode-pill", ".category-pill", ".pos-pill", ".reveal-mode-pill",
     ".def-style-pill", ".practice-pill", ".timer-mode-pill", ".theme-swatch",
     ".timer-duration-btn", "#timerLoopBtn", "#timerReturnBtn", "#timerConfirmBtn",
     "#timerSoundPreviewBtn", ".timer-sound-pill", "#showAllDefsBtn", "#csvResetBtn",
@@ -821,6 +821,65 @@ test("category toggles persist across a reload", async (doc) => {
     );
     assertEqual(active.size, 2, "expected exactly 2 categories to persist as enabled, got " + [...active].join(","));
     assert(active.has("food") && active.has("animals"), "food and animals should be the persisted enabled categories");
+  } finally {
+    fresh.iframe.remove();
+  }
+});
+
+// ---- word type (part of speech) ----
+
+// Clicks each POS pill to whatever on/off state `wanted` (a Set of POS ids
+// to enable) says it should be, mirroring setCategories above.
+function setPos(doc, wanted) {
+  doc.querySelectorAll(".pos-pill").forEach((btn) => {
+    const shouldBeOn = wanted.has(btn.dataset.pos);
+    if (btn.classList.contains("active") !== shouldBeOn) btn.click();
+  });
+}
+
+test("word type defaults to all enabled, and the row is English-only", async (doc) => {
+  const pills = doc.querySelectorAll(".pos-pill");
+  assertEqual(pills.length, 5, "expected all 5 word-type pills");
+  assert([...pills].every((btn) => btn.classList.contains("active")), "every word type should start enabled");
+  assertEqual(displayOf(doc.getElementById("posRow")), "flex", "word-type row should be visible for English");
+
+  doc.querySelector('.lang-pill[data-lang="nl"]').click();
+  assertEqual(displayOf(doc.getElementById("posRow")), "none", "word-type row should hide for a non-English language");
+
+  doc.querySelector('.lang-pill[data-lang="en"]').click();
+  assertEqual(displayOf(doc.getElementById("posRow")), "flex", "word-type row should reappear back on English");
+  assert([...doc.querySelectorAll(".pos-pill")].every((btn) => btn.classList.contains("active")), "word-type selection should be untouched by the language round-trip");
+});
+
+test("enabling only 'verb' restricts generated pairs to verb-tagged words", async (doc, win) => {
+  setPos(doc, new Set(["verb"]));
+  const words = pairWordsOf(doc);
+  assert(words.length > 0, "expected at least one pair from the verb-only pool");
+  // POS_DATA is declared with `const` in a classic <script src>, so it's a
+  // script-scope binding, not a window property — win.POS_DATA is
+  // undefined from outside. win.eval runs in that global scope, so it can
+  // still see it.
+  const posData = win.eval("POS_DATA");
+  assert(words.every((w) => (posData[w] || []).includes("verb")), "every generated word should be tagged verb, got " + words.join(","));
+});
+
+test("disabling every word type yields the empty state", async (doc) => {
+  setPos(doc, new Set());
+  assertEqual(doc.querySelectorAll(".pair-card").length, 0, "no pairs should be generated with every word type disabled");
+  assert(!!doc.querySelector(".empty-state"), "the empty-state message should show instead");
+});
+
+test("word type toggles persist across a reload", async (doc) => {
+  setPos(doc, new Set(["noun", "verb"]));
+  await sleep(50);
+
+  const fresh = await loadFreshApp();
+  try {
+    const active = new Set(
+      [...fresh.doc.querySelectorAll(".pos-pill.active")].map((btn) => btn.dataset.pos)
+    );
+    assertEqual(active.size, 2, "expected exactly 2 word types to persist as enabled, got " + [...active].join(","));
+    assert(active.has("noun") && active.has("verb"), "noun and verb should be the persisted enabled word types");
   } finally {
     fresh.iframe.remove();
   }
