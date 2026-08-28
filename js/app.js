@@ -155,12 +155,16 @@
   // Collab mode: x people rhyme together sequentially, each pair-card
   // colored by whose turn it is. collabEnabled only seeds the checkbox at
   // init (see the playlistVisible pattern above) — collabToggle.checked is
-  // the source of truth afterward. See assignCollabColors below for how
-  // pairs are split into per-person turns.
+  // the source of truth afterward. collabPairsPerTurn is an explicit
+  // dropdown choice, not derived from selectedCount — see
+  // assignCollabColors below for how pairs are split into per-person turns.
   let collabEnabled = false;
   let collabCount = 2;
   const COLLAB_MIN = 2;
   const COLLAB_MAX = 8;
+  let collabPairsPerTurn = 2;
+  const COLLAB_PAIRS_PER_TURN_MIN = 1;
+  const COLLAB_PAIRS_PER_TURN_MAX = 5;
 
   // ---- persisted settings ----
   // Everything here is a user preference, not session data (a CSV upload
@@ -268,6 +272,13 @@
     if (typeof stored.collabCount === "number" && stored.collabCount >= COLLAB_MIN && stored.collabCount <= COLLAB_MAX) {
       collabCount = stored.collabCount;
     }
+    if (
+      typeof stored.collabPairsPerTurn === "number" &&
+      stored.collabPairsPerTurn >= COLLAB_PAIRS_PER_TURN_MIN &&
+      stored.collabPairsPerTurn <= COLLAB_PAIRS_PER_TURN_MAX
+    ) {
+      collabPairsPerTurn = stored.collabPairsPerTurn;
+    }
   }
 
   function saveSettings() {
@@ -306,6 +317,7 @@
         metronomeVolume,
         collabEnabled: collabToggle.checked,
         collabCount,
+        collabPairsPerTurn,
         deletedWordsByLang: Object.fromEntries(
           Object.entries(deletedWordSets).map(([lang, set]) => [lang, [...set]])
         ),
@@ -364,6 +376,8 @@
   const collabOptionsRow = document.getElementById("collabOptionsRow");
   const collabCountInput = document.getElementById("collabCountInput");
   const collabSwatches = document.getElementById("collabSwatches");
+  const collabPairsPerTurnRow = document.getElementById("collabPairsPerTurnRow");
+  const collabPairsPerTurnSelect = document.getElementById("collabPairsPerTurnSelect");
   const guidelinesDetails = document.getElementById("guidelinesDetails");
   const advancedDetails = document.getElementById("advancedDetails");
   const revealModePills = document.querySelectorAll(".reveal-mode-pill");
@@ -1970,7 +1984,8 @@
   }
 
   // Collab mode: each freshly generated batch is split into contiguous
-  // per-person turns sized to selectedCount/collabCount. collabPerson/
+  // per-person turns sized to the explicit collabPairsPerTurn dropdown
+  // (not derived from selectedCount/collabCount). collabPerson/
   // collabOffset are deliberately module-level (not reset per batch) so
   // that when a batch doesn't divide evenly, the in-progress turn carries
   // into the next generate() call instead of restarting at person 1 —
@@ -1988,7 +2003,7 @@
   }
 
   function assignCollabColors(pairs) {
-    const chunkSize = Math.max(1, Math.floor(selectedCount / collabCount));
+    const chunkSize = collabPairsPerTurn;
     for (const p of pairs) {
       p.collabPerson = collabPerson;
       collabOffset++;
@@ -2001,7 +2016,9 @@
 
   function updateCollabOptionsUI() {
     collabOptionsRow.hidden = !collabToggle.checked;
+    collabPairsPerTurnRow.hidden = !collabToggle.checked;
     collabCountInput.value = String(collabCount);
+    collabPairsPerTurnSelect.value = String(collabPairsPerTurn);
     collabSwatches.innerHTML = "";
     for (let i = 0; i < collabCount; i++) {
       const dot = document.createElement("span");
@@ -2022,6 +2039,21 @@
 
   collabCountInput.addEventListener("change", () => {
     collabCount = clamp(parseInt(collabCountInput.value, 10) || COLLAB_MIN, COLLAB_MIN, COLLAB_MAX);
+    updateCollabOptionsUI();
+    resetCollabRotation();
+    if (collabToggle.checked) {
+      assignCollabColors(currentPairs);
+      renderPairs(currentPairs, selectedCount);
+    }
+    saveSettings();
+  });
+
+  collabPairsPerTurnSelect.addEventListener("change", () => {
+    collabPairsPerTurn = clamp(
+      parseInt(collabPairsPerTurnSelect.value, 10) || COLLAB_PAIRS_PER_TURN_MIN,
+      COLLAB_PAIRS_PER_TURN_MIN,
+      COLLAB_PAIRS_PER_TURN_MAX
+    );
     updateCollabOptionsUI();
     resetCollabRotation();
     if (collabToggle.checked) {

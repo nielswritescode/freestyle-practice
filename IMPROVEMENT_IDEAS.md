@@ -4,6 +4,28 @@ Occasional notes on patterns/AI code flow worth reconsidering, per CLAUDE.md.
 Written as questions/direction for you (Niels) to decide on, not things
 changed unilaterally.
 
+## Found while adding the collab "pairs per turn" dropdown
+
+- **A reused dev-server port can make `test/run.sh` silently grade stale
+  code as passing.** After editing `test/smoke.html`, I served the repo
+  with `python -m http.server 8935` (same port `test/run.sh` always uses)
+  and pointed a fresh Chrome tab at `http://localhost:8935/test/smoke.html`.
+  The test run "passed," but the results it reported were for the *old*
+  test names from before my edit — even though `curl`ing that exact URL
+  fresh showed the server was serving the updated file correctly. Cause:
+  Chrome's disk cache had `http://localhost:8935/test/smoke.html` cached
+  from an earlier session on this machine (this port gets reused across
+  many sessions per the day-to-day workflow), and `http.server` doesn't
+  send cache-busting headers, so the browser silently reused the stale
+  cached HTML instead of refetching it. Appending a cache-busting query
+  string (`?cb=<timestamp>`) to the URL fixed it. This is a more dangerous
+  variant of the already-documented title-truncation and port-collision
+  bugs below: those fail loudly or look obviously wrong, but this one
+  reports a clean, fully-passing run for the wrong code with no signal
+  anything is off. Worth having `test/run.sh` (or whatever replaces the
+  Linux-only Chrome/python3 invocation on this Windows machine) always
+  append a cache-busting query param to the smoke-test URL?
+
 ## Keep the intermediate data behind a generated file, not just the output
 
 When `data/words-data.js`'s difficulty tiers were originally computed, only
