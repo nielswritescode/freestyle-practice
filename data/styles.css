@@ -189,6 +189,12 @@ h1 span{color:var(--accent);}
   color:var(--ink-dim);
 }
 .guidelines-body em{color:var(--accent); font-style:normal; font-weight:600;}
+.guidelines-practices{
+  margin-top:14px;
+  padding-top:16px;
+  padding-bottom:16px;
+  border-top:1px solid var(--line);
+}
 .row{
   display:flex;
   align-items:center;
