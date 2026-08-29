@@ -15,6 +15,7 @@
     fr: { ...tieredWords(WORDS_DATA_FR), getKey: buildDecoderFR(WORDS_DATA_FR) },
     es: { ...tieredWords(WORDS_DATA_ES), getKey: buildDecoderES(WORDS_DATA_ES) },
     it: { ...tieredWords(WORDS_DATA_IT), getKey: buildDecoderIT(WORDS_DATA_IT) },
+    cs: { ...tieredWords(WORDS_DATA_CS), getKey: buildDecoderCS(WORDS_DATA_CS) },
   };
 
   // Per-language UI strings and built-in library size, keyed the same as
@@ -30,6 +31,7 @@
     fr: { wordListLabel: "Liste de mots — 3 000 intégrés, ou ajoutez les vôtres [WIP]", builtInCount: "3,000" },
     es: { wordListLabel: "Lista de palabras — 3000 incorporadas, o añade las tuyas [WIP]", builtInCount: "3,000" },
     it: { wordListLabel: "Lista di parole — 3.000 integrate, o aggiungi le tue [WIP]", builtInCount: "3,000" },
+    cs: { wordListLabel: "Seznam slov — 3 000 vestavěných, nebo přidejte vlastní [WIP]", builtInCount: "3,000" },
   };
   // Only English has a rule-based spelling-to-sound fallback (js/phonetics-en.js);
   // every other language depends entirely on its built-in pronunciation
@@ -51,6 +53,7 @@
     fr: [80, 90],
     es: [80, 90],
     it: [80, 90],
+    cs: [80, 90],
   };
   // Kept as a live reference into diffSplitByLang[currentLanguage] — every
   // read/write site below just uses `diffSplit`, and mutating its elements
@@ -63,7 +66,7 @@
   // it was clicked in — a word's spelling doesn't carry across languages,
   // so like diffSplitByLang this is kept per-language rather than global.
   const deletedWordSets = {
-    en: new Set(), nl: new Set(), de: new Set(), fr: new Set(), es: new Set(), it: new Set(),
+    en: new Set(), nl: new Set(), de: new Set(), fr: new Set(), es: new Set(), it: new Set(), cs: new Set(),
   };
 
   let selectedCount = 20;
@@ -187,7 +190,7 @@
       s.every((v) => typeof v === "number" && v >= 0 && v <= 100) &&
       s[0] <= s[1];
     if (stored.diffSplitByLang && typeof stored.diffSplitByLang === "object") {
-      for (const lang of ["en", "nl", "de", "fr", "es", "it"]) {
+      for (const lang of ["en", "nl", "de", "fr", "es", "it", "cs"]) {
         const s = stored.diffSplitByLang[lang];
         if (isValidSplit(s)) diffSplitByLang[lang] = s;
       }
@@ -220,7 +223,7 @@
       defStyle = stored.defStyle;
     }
     if (stored.deletedWordsByLang && typeof stored.deletedWordsByLang === "object") {
-      for (const lang of ["en", "nl", "de", "fr", "es", "it"]) {
+      for (const lang of ["en", "nl", "de", "fr", "es", "it", "cs"]) {
         const arr = stored.deletedWordsByLang[lang];
         if (Array.isArray(arr)) deletedWordSets[lang] = new Set(arr.filter((w) => typeof w === "string"));
       }
@@ -1791,6 +1794,7 @@
     fr: (q) => `https://www.larousse.fr/dictionnaires/francais/${q}`,
     es: (q) => `https://dle.rae.es/${q}`,
     it: (q) => `https://www.treccani.it/vocabolario/${q}`,
+    cs: (q) => `https://prirucka.ujc.cas.cz/?slovo=${q}`,
   };
   function dictionaryUrl(word) {
     const q = encodeURIComponent(word.toLowerCase());
