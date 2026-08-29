@@ -79,6 +79,29 @@ current split already feels good enough day-to-day.
   collab-mode feature (got a clean, plausible-looking report for a test suite
   that turned out to be `main`'s, not this worktree's). Worth defaulting to a
   random free port instead of a fixed one?
+  (Recurred again 2026-08-30, on the Windows machine, while verifying the
+  keyboard-shortcuts feature: `test/run.sh`'s own `python3 test/smoke_server.py`
+  bound the default port fine and did receive the final results POST — I could
+  tell because it landed in that run's own freshly-`mktemp`'d result file — but
+  the served `test/smoke.html`/`rg-latest.html` content was neither this
+  worktree's nor evidently any single consistent version: the report came back
+  53/53 "passed," but included test names for features this repo's smoke.html
+  doesn't have and was missing the keyboard-shortcut tests just added. A
+  `Get-CimInstance Win32_Process` sweep during the same window turned up
+  another live session's `smoke_server.py` bound to a *different* port (8937,
+  not the colliding 8935) — so multiple concurrent smoke-test servers on this
+  machine at once is a normal, frequent occurrence, not a one-off. Best guess:
+  Windows' famously permissive `SO_REUSEADDR` let a second, unrelated leftover
+  server also bind :8935 without erroring, and the OS split individual
+  requests between the two processes non-deterministically — GETs answered by
+  the stale one, the final POST answered by the fresh one. If true, that's a
+  strictly worse failure mode than a clean bind error: results can be a
+  *blend* of two different code versions in the same report, and it self-heals
+  as soon as the stale process exits, so it won't reproduce on demand. Same
+  proposed fix applies — a random free port — but on Windows specifically,
+  also worth setting `SO_REUSEADDR` off (or binding with `SO_EXCLUSIVEADDRUSE`)
+  in `test/smoke_server.py` so a genuine collision fails loudly instead of
+  silently sharing the port.)
 
 - **`python3` isn't always Python on Windows.** On this machine, `python3` on
   PATH resolves to the Microsoft Store's non-functional alias stub (it prints
@@ -89,6 +112,15 @@ current split already feels good enough day-to-day.
   "python3 isn't runnable" message. Worth also trying `python` as a fallback,
   or sanity-checking `python3 --version` up front and printing its stderr if
   the server never responds?
+  (2026-08-30: worked around this machine-locally, not in the repo, by adding
+  `~/bin/python3` — a one-line shim script that `exec`s `C:\Python314\python.exe`
+  — and `~/bin/google-chrome` the same way for `chrome.exe`, since `~/bin` was
+  already first on `PATH` but empty. `command -v python3`/`google-chrome` now
+  resolve correctly and `test/run.sh` runs unmodified. This only fixes *this*
+  machine/user account though — a fresh clone or another Windows machine hits
+  the exact same failure on its first run, which is the actual argument for
+  fixing it in `test/run.sh` itself rather than leaving it as tribal knowledge
+  living in per-machine shims.)
 
 ## Found while adding word categories
 
