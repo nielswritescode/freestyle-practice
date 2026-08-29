@@ -82,6 +82,7 @@
   let autoRefreshEnabled = false;
   let autoRefreshSeconds = 60;
   let defStyle = "links"; // 'links' | 'simple' | 'full' | 'delete'
+  let bugReportNoticeShown = false; // only surface the feature-support reminder the first time Bug Report is clicked
   let activeTypes = new Set(["perfect"]); // near still hidden; slant toggled via #slantToggle below
 
   // Only meaningful while "slant" is active (see slantRatioRow/
@@ -224,6 +225,7 @@
     if (["links", "simple", "full", "delete"].includes(stored.defStyle)) {
       defStyle = stored.defStyle;
     }
+    if (typeof stored.bugReportNoticeShown === "boolean") bugReportNoticeShown = stored.bugReportNoticeShown;
     if (stored.deletedWordsByLang && typeof stored.deletedWordsByLang === "object") {
       for (const lang of ["en", "nl", "de", "fr", "es", "it", "cs"]) {
         const arr = stored.deletedWordsByLang[lang];
@@ -304,6 +306,7 @@
         autoRefreshEnabled: autoRefreshToggle.checked,
         autoRefreshSeconds,
         defStyle,
+        bugReportNoticeShown,
         slantEnabled: activeTypes.has("slant"),
         slantRatio,
         slantMinScorePos,
@@ -396,6 +399,7 @@
   const defStylePills = document.querySelectorAll(".def-style-pill");
   const showAllDefsRow = document.getElementById("showAllDefsRow");
   const showAllDefsBtn = document.getElementById("showAllDefsBtn");
+  const deletedWordsSection = document.getElementById("deletedWordsSection");
   const downloadDeletedBtn = document.getElementById("downloadDeletedBtn");
   const clearDeletedBtn = document.getElementById("clearDeletedBtn");
   const deletedStatus = document.getElementById("deletedStatus");
@@ -434,6 +438,7 @@
   const shareInstagramBtn = document.getElementById("shareInstagramBtn");
   const shareStatus = document.getElementById("shareStatus");
   const infoBtn = document.getElementById("infoBtn");
+  const bugReportBtn = document.getElementById("bugReportBtn");
   const showTimerBtn = document.getElementById("showTimerBtn");
   const timerCloseBtn = document.getElementById("timerCloseBtn");
   const timerPanel = document.getElementById("timerPanel");
@@ -1239,6 +1244,16 @@
   infoBtn.addEventListener("click", () => {
     showShareStatus(infoBtn.title);
   });
+  // Surface the same feature-support reminder the first time someone heads
+  // to file a bug/feature request, so they see it before reporting what
+  // might just be a known non-English gap — but only once, ever, so it
+  // doesn't nag on every report.
+  bugReportBtn.addEventListener("click", () => {
+    if (bugReportNoticeShown) return;
+    bugReportNoticeShown = true;
+    showShareStatus(infoBtn.title);
+    saveSettings();
+  });
   shareWhatsappBtn.addEventListener("click", () => {
     const text = `Check out RhymeJoy — rhyme pairs to freestyle to: ${location.href}`;
     window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank", "noopener,noreferrer");
@@ -1885,6 +1900,7 @@
 
   function updateDeletedStatus() {
     const n = deletedWordSets[currentLanguage].size;
+    deletedWordsSection.hidden = n === 0;
     deletedStatus.textContent = n === 0
       ? "No words deleted yet."
       : `${n} word${n === 1 ? "" : "s"} deleted for ${langPillLabel(currentLanguage)}.`;

@@ -276,12 +276,14 @@
         </div>
         <div class="advanced-section">
           <div class="advanced-section-title">Word list</div>
-          <div class="row">
-            <div class="label">Deleted words</div>
-            <button class="btn-ghost" id="downloadDeletedBtn">Download deleted words</button>
-            <button class="btn-ghost" id="clearDeletedBtn">Clear deleted words</button>
+          <div id="deletedWordsSection" hidden>
+            <div class="row">
+              <div class="label">Deleted words</div>
+              <button class="btn-ghost" id="downloadDeletedBtn">Download deleted words</button>
+              <button class="btn-ghost" id="clearDeletedBtn">Clear deleted words</button>
+            </div>
+            <div class="status-msg" id="deletedStatus">No words deleted yet.</div>
           </div>
-          <div class="status-msg" id="deletedStatus">No words deleted yet.</div>
           <div class="row csv-row" id="csvRow" style="margin-top:14px;" hidden>
             <div class="label" id="wordListLabel">Word list — 11,000 built in, or add your own [WIP]</div>
             <input type="file" id="csvInput" accept=".csv,text/csv">
@@ -411,7 +413,7 @@
         </svg>
       </a>
     </div>
-    <a class="btn-ghost feedback-btn" href="https://github.com/nielswritescode/freestyle-practice/issues/new" target="_blank" rel="noopener noreferrer">Bug Report / Feature Suggest</a>
+    <a class="btn-ghost feedback-btn" id="bugReportBtn" href="https://github.com/nielswritescode/freestyle-practice/issues/new" target="_blank" rel="noopener noreferrer">Bug Report / Feature Suggest</a>
     <button type="button" class="btn-ghost info-btn" id="infoBtn" aria-label="Feature support note" title="Not all features are supported for non-English languages.">?</button>
   </div>
   <div class="status-msg share-status" id="shareStatus"></div>
