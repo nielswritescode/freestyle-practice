@@ -426,6 +426,7 @@
   const shareFacebookBtn = document.getElementById("shareFacebookBtn");
   const shareInstagramBtn = document.getElementById("shareInstagramBtn");
   const shareStatus = document.getElementById("shareStatus");
+  const infoBtn = document.getElementById("infoBtn");
   const showTimerBtn = document.getElementById("showTimerBtn");
   const timerCloseBtn = document.getElementById("timerCloseBtn");
   const timerPanel = document.getElementById("timerPanel");
@@ -1225,6 +1226,12 @@
     clearTimeout(shareStatusTimeout);
     shareStatusTimeout = setTimeout(() => { shareStatus.textContent = ""; }, 5000);
   }
+  // The title attribute gives hover/focus users a native tooltip, but that
+  // never fires from a tap on touch devices — a click needs to surface the
+  // same message explicitly.
+  infoBtn.addEventListener("click", () => {
+    showShareStatus(infoBtn.title);
+  });
   shareWhatsappBtn.addEventListener("click", () => {
     const text = `Check out RhymeJoy — rhyme pairs to freestyle to: ${location.href}`;
     window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank", "noopener,noreferrer");
