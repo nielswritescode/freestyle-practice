@@ -107,7 +107,7 @@ test("broad click sweep across every major control throws no errors", async (doc
     "#csvExampleBtn", "#refreshBtnTop", "#refreshBtnBottom", "#playlistToggle",
     "#autoRefreshToggle", "#downloadDeletedBtn", "#clearDeletedBtn", "#showTimerBtn",
     "#hideUiBtn", "#localPlayerPrevBtn", "#localPlayerPlayBtn", "#localPlayerNextBtn",
-    "#localPlayerLoopBtn", "#collabToggle",
+    "#localPlayerLoopBtn", "#collabToggle", "#shortcutsToggle",
   ];
   let clicked = 0;
   for (const sel of selectors) {
@@ -1009,6 +1009,83 @@ test("word type toggles persist across a reload", async (doc) => {
     );
     assertEqual(active.size, 2, "expected exactly 2 word types to persist as enabled, got " + [...active].join(","));
     assert(active.has("noun") && active.has("verb"), "noun and verb should be the persisted enabled word types");
+  } finally {
+    fresh.iframe.remove();
+  }
+});
+
+// ---- keyboard shortcuts ----
+
+test("keyboard shortcuts are off by default and ignored until enabled", async (doc, win) => {
+  assert(!doc.getElementById("shortcutsToggle").checked, "shortcuts toggle should default to off");
+  let scrollCalls = 0;
+  win.Element.prototype.scrollIntoView = function () { scrollCalls++; };
+  doc.dispatchEvent(new KeyboardEvent("keydown", { key: " " }));
+  assertEqual(scrollCalls, 0, "space should do nothing while shortcuts are disabled");
+});
+
+test("'C' toggles Collab mode once shortcuts are enabled", async (doc) => {
+  doc.getElementById("advancedDetails").open = true;
+  doc.getElementById("shortcutsToggle").click();
+  const collabToggle = doc.getElementById("collabToggle");
+  assert(!collabToggle.checked, "collab mode should start off");
+  doc.dispatchEvent(new KeyboardEvent("keydown", { key: "c" }));
+  assert(collabToggle.checked, "'c' should enable collab mode");
+  assertEqual(displayOf(doc.getElementById("collabOptionsRow")), "flex", "collab options should show, same as a real click");
+  doc.dispatchEvent(new KeyboardEvent("keydown", { key: "c" }));
+  assert(!collabToggle.checked, "'c' should toggle collab mode back off");
+});
+
+test("Space and Enter refresh the rhymes once shortcuts are enabled", async (doc, win) => {
+  doc.getElementById("shortcutsToggle").click();
+  let scrollCalls = 0;
+  win.Element.prototype.scrollIntoView = function () { scrollCalls++; };
+  doc.dispatchEvent(new KeyboardEvent("keydown", { key: " " }));
+  assertEqual(scrollCalls, 1, "space should trigger a refresh (which scrolls to the results)");
+  doc.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
+  assertEqual(scrollCalls, 2, "enter should also trigger a refresh");
+});
+
+test("Space and C shortcuts are ignored while a form field is the event target", async (doc, win) => {
+  doc.getElementById("shortcutsToggle").click();
+  let scrollCalls = 0;
+  win.Element.prototype.scrollIntoView = function () { scrollCalls++; };
+  const input = doc.getElementById("customCount");
+  input.dispatchEvent(new KeyboardEvent("keydown", { key: " ", bubbles: true }));
+  assertEqual(scrollCalls, 0, "space typed into a number field should not trigger a refresh");
+  input.dispatchEvent(new KeyboardEvent("keydown", { key: "c", bubbles: true }));
+  assert(!doc.getElementById("collabToggle").checked, "'c' typed into a field should not toggle collab mode");
+});
+
+test("holding 'D' reveals every definition in Simple Definition mode, then hides them again on release", async (doc) => {
+  doc.getElementById("advancedDetails").open = true;
+  doc.getElementById("shortcutsToggle").click();
+  doc.querySelector('.def-style-pill[data-def-style="simple"]').click();
+  const defEls = () => [...doc.querySelectorAll(".word-def")];
+  assert(defEls().length > 0, "expected at least one definition slot");
+  assert(defEls().every((el) => el.hidden), "definitions should start hidden");
+
+  doc.dispatchEvent(new KeyboardEvent("keydown", { key: "d" }));
+  assert(defEls().every((el) => !el.hidden), "holding 'd' should reveal every definition");
+
+  doc.dispatchEvent(new KeyboardEvent("keyup", { key: "d" }));
+  assert(defEls().every((el) => el.hidden), "releasing 'd' should hide them again");
+});
+
+test("holding 'D' does nothing outside Simple Definition mode", async (doc) => {
+  doc.getElementById("shortcutsToggle").click();
+  doc.dispatchEvent(new KeyboardEvent("keydown", { key: "d" }));
+  const errored = [...doc.querySelectorAll(".word-def")].some((el) => !el.hidden);
+  assert(!errored, "'d' should not reveal anything outside Simple Definition mode");
+  doc.dispatchEvent(new KeyboardEvent("keyup", { key: "d" }));
+});
+
+test("keyboard shortcuts toggle persists across a reload", async (doc) => {
+  doc.getElementById("shortcutsToggle").click();
+  await sleep(50);
+  const fresh = await loadFreshApp();
+  try {
+    assert(fresh.doc.getElementById("shortcutsToggle").checked, "shortcuts toggle should persist as enabled");
   } finally {
     fresh.iframe.remove();
   }

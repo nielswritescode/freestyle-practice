@@ -1,3 +1,2 @@
-- Change PRACTICE flashing: remove the full-page dark shadow/overlay effect; instead give the word itself 7 different colors + wordart styles.
-- Bug: pressing "Seconds" (timer duration unit toggle) wasn't working last time.
-Page still scrolls to spotify embed when song rolls over.
+- Copy Rhyme Pair Mode (next to deletion mode)
+- Stop native player when switching music player

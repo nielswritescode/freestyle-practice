@@ -170,6 +170,12 @@
   const COLLAB_PAIRS_PER_TURN_MIN = 1;
   const COLLAB_PAIRS_PER_TURN_MAX = 5;
 
+  // Keyboard shortcuts: opt-in (default off) so they never surprise someone
+  // who hasn't turned them on. shortcutsEnabled only seeds the checkbox at
+  // init, same as collabEnabled above — shortcutsToggle.checked is the
+  // source of truth afterward.
+  let shortcutsEnabled = false;
+
   // ---- persisted settings ----
   // Everything here is a user preference, not session data (a CSV upload
   // isn't remembered — file inputs can't be restored anyway, and Dutch/
@@ -284,6 +290,7 @@
     ) {
       collabPairsPerTurn = stored.collabPairsPerTurn;
     }
+    if (typeof stored.shortcutsEnabled === "boolean") shortcutsEnabled = stored.shortcutsEnabled;
   }
 
   function saveSettings() {
@@ -324,6 +331,7 @@
         collabEnabled: collabToggle.checked,
         collabCount,
         collabPairsPerTurn,
+        shortcutsEnabled: shortcutsToggle.checked,
         deletedWordsByLang: Object.fromEntries(
           Object.entries(deletedWordSets).map(([lang, set]) => [lang, [...set]])
         ),
@@ -387,6 +395,7 @@
   const collabSwatches = document.getElementById("collabSwatches");
   const collabPairsPerTurnRow = document.getElementById("collabPairsPerTurnRow");
   const collabPairsPerTurnSelect = document.getElementById("collabPairsPerTurnSelect");
+  const shortcutsToggle = document.getElementById("shortcutsToggle");
   const guidelinesDetails = document.getElementById("guidelinesDetails");
   const optionsDetails = document.getElementById("optionsDetails");
   const advancedDetails = document.getElementById("advancedDetails");
@@ -2342,6 +2351,64 @@
     updateHideUiUI();
   });
 
+  // ---- keyboard shortcuts ----
+  // Opt-in via #shortcutsToggle so they never surprise someone who hasn't
+  // turned them on. Always ignored while typing into a form field. Space/
+  // Enter are further ignored when a button/link/summary has focus, since
+  // those already activate on Space/Enter natively — without that check a
+  // focused pill would both toggle itself AND trigger a refresh.
+  shortcutsToggle.addEventListener("change", saveSettings);
+
+  const SHORTCUT_TEXT_ENTRY_TAGS = new Set(["INPUT", "TEXTAREA", "SELECT"]);
+  const SHORTCUT_NATIVE_ACTIVATION_TAGS = new Set(["BUTTON", "A", "SUMMARY"]);
+  function isShortcutTypingTarget(target) {
+    return SHORTCUT_TEXT_ENTRY_TAGS.has(target.tagName) || target.isContentEditable;
+  }
+
+  // "Hold D" reveals every simple definition for as long as it's held, then
+  // hides again on release — but only the ones this hold actually opened,
+  // so a definition the user already had open (via a manual click) doesn't
+  // get closed out from under them when they let go.
+  let heldDefEls = null;
+  function revealAllDefsForHold() {
+    if (defStyle !== "simple" || heldDefEls) return;
+    heldDefEls = [];
+    pairsContainer.querySelectorAll(".word-simple").forEach((wordEl) => {
+      const defEl = wordEl.closest(".word-slot").querySelector(".word-def");
+      if (defEl.hidden) {
+        heldDefEls.push(defEl);
+        revealSimpleDefinition(wordEl);
+      }
+    });
+  }
+  function releaseHeldDefs() {
+    if (!heldDefEls) return;
+    heldDefEls.forEach((defEl) => { defEl.hidden = true; });
+    heldDefEls = null;
+  }
+
+  document.addEventListener("keydown", (e) => {
+    if (!shortcutsToggle.checked) return;
+    if (e.ctrlKey || e.metaKey || e.altKey || e.repeat) return;
+    if (isShortcutTypingTarget(e.target)) return;
+    if (e.key === "c" || e.key === "C") {
+      collabToggle.click();
+    } else if (e.key === " " || e.key === "Enter") {
+      if (SHORTCUT_NATIVE_ACTIVATION_TAGS.has(e.target.tagName)) return;
+      e.preventDefault();
+      generate(true);
+    } else if (e.key === "d" || e.key === "D") {
+      e.preventDefault();
+      revealAllDefsForHold();
+    }
+  });
+  document.addEventListener("keyup", (e) => {
+    if (e.key === "d" || e.key === "D") releaseHeldDefs();
+  });
+  // Releases a still-held D if focus leaves the window mid-hold (e.g.
+  // alt-tabbing away) — otherwise no keyup ever arrives to clear it.
+  window.addEventListener("blur", releaseHeldDefs);
+
   // ---- init ----
   guidelinesDetails.open = guidelinesOpen;
   optionsDetails.open = optionsOpen;
@@ -2365,6 +2432,7 @@
   updatePlaylistSource();
   collabToggle.checked = collabEnabled;
   updateCollabOptionsUI();
+  shortcutsToggle.checked = shortcutsEnabled;
   if (customCountActive) customCountInput.value = selectedCount;
   autoRefreshToggle.checked = autoRefreshEnabled;
   autoRefreshSecondsInput.value = autoRefreshSeconds;
