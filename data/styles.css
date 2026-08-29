@@ -769,9 +769,10 @@ body.metronome-open .wrap{padding-top:190px;}
   flex-wrap:wrap;
 }
 
-/* Round "?" next to the feedback link — hover/focus reveals its native
-   title tooltip explaining non-English language support gaps, so it
-   doesn't need its own JS or tooltip markup. */
+/* Round "?" next to the feedback link. Hover/focus reveals its native
+   title tooltip explaining non-English language support gaps; a click
+   (needed on touch, where the tooltip never fires) shows the same text
+   via the shared status-msg line instead. */
 .info-btn{
   width:28px;
   height:28px;

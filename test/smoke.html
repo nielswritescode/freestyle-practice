@@ -617,6 +617,12 @@ test("share buttons: WhatsApp/Facebook open the right share URLs, Instagram copi
   assert(doc.getElementById("shareStatus").textContent.length > 0, "share status should show a message after the Instagram click");
 });
 
+test("info button shows its tooltip message as a status line on click", (doc) => {
+  const infoBtn = doc.getElementById("infoBtn");
+  infoBtn.click();
+  assertEqual(doc.getElementById("shareStatus").textContent, infoBtn.title, "clicking the info button should surface its title text as a status message");
+});
+
 // ---- local beats player ----
 
 test("switching the player source to Local Beats shows the local player and hides the embeds", async (doc) => {
