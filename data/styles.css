@@ -895,6 +895,7 @@ a.share-btn.btn-ghost{display:inline-flex;}
   margin-bottom:10px;
   break-inside:avoid;
   -webkit-column-break-inside:avoid;
+  scroll-margin-top:16px;
 }
 .pair-card.collab-pair{
   background:color-mix(in srgb, var(--collab-color, var(--line)) 14%, var(--panel));
