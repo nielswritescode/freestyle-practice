@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
-"""Decodes the SMOKE_DONE: title written by test/smoke.html and prints a
-pass/fail report. Split out from run.sh as its own file (reading the
-title from a path given as sys.argv[1]) specifically to sidestep the
-pipe-into-heredoc stdin trap documented in run.sh."""
-import base64
+"""Prints a pass/fail report from the results JSON that smoke_server.py
+wrote after smoke.html POSTed them (see test/run.sh). Split out from run.sh
+as its own file (reading the path from sys.argv[1]) specifically to sidestep
+the pipe-into-heredoc stdin trap: piping into `python3 - <<EOF` doesn't work,
+since the heredoc IS what python3 reads as the program (that's what `-`
+means) and silently wins over the pipe, so sys.stdin.read() gets nothing."""
 import json
 import sys
 
-line = open(sys.argv[1], encoding="utf-8").read().strip()
-encoded = line[len("SMOKE_DONE:"):]
-data = json.loads(base64.b64decode(encoded).decode("utf-8"))
+sys.stdout.reconfigure(encoding="utf-8")  # Windows consoles default stdout to cp1252, which can't encode ✓/✗ below
+data = json.load(open(sys.argv[1], encoding="utf-8"))
 
 for r in data["results"]:
     mark = "\033[32m✓\033[0m" if r["pass"] else "\033[31m✗\033[0m"

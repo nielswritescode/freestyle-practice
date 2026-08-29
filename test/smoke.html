@@ -959,17 +959,22 @@ runAll().then((results) => {
   // machine-readable summary for test/run.sh to grep
   const marker = document.createElement("div");
   marker.id = "smoke-test-result";
-  marker.setAttribute("data-json", JSON.stringify({ passCount, failCount, total: results.length, results }));
+  const summary = JSON.stringify({ passCount, failCount, total: results.length, results });
+  marker.setAttribute("data-json", summary);
   document.body.appendChild(marker);
 
-  // test/run.sh can't rely on --dump-dom's timing (it doesn't wait around
-  // for a page that keeps loading iframes for several seconds after its own
-  // load event) — polling the DevTools /json endpoint's live "title" field
-  // instead needs no such wait. Base64 keeps the JSON's quotes/newlines from
-  // upsetting whatever's reading document.title.
-  document.title = "SMOKE_DONE:" + btoa(unescape(encodeURIComponent(
-    JSON.stringify({ passCount, failCount, total: results.length, results })
-  )));
+  // test/run.sh can't rely on --dump-dom's timing (it doesn't wait around for
+  // a page that keeps loading iframes for several seconds after its own load
+  // event), so it needs some other signal it can poll for completion. This
+  // used to be encoded into document.title and read back via Chrome's
+  // DevTools /json endpoint, but that endpoint truncates long titles — once
+  // the suite grew past ~4000 characters of encoded JSON, run.sh always got
+  // a truncated, undecodable string. POSTing the JSON straight to
+  // test/smoke_server.py's /__smoke_result__ endpoint (which writes it to a
+  // file run.sh polls for) has no such size limit. document.title still gets
+  // a short human-readable summary, for anyone running this by hand.
+  document.title = failCount ? `Smoke: ${failCount}/${results.length} FAILED` : `Smoke: ${passCount}/${results.length} passed`;
+  fetch("/__smoke_result__", { method: "POST", body: summary }).catch(() => {});
 });
 </script>
 </body>
