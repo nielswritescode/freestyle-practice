@@ -384,6 +384,9 @@ input[type="range"]:focus-visible{outline:2px solid var(--accent); outline-offse
   color:var(--ink);
   text-align:center;
 }
+.local-player-progress-row{
+  width:100%;
+}
 .local-player-controls{
   justify-content:center;
 }
