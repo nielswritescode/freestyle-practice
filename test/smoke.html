@@ -674,6 +674,89 @@ test("local player next/prev cycle through beats and the loop toggle persists", 
   }
 });
 
+// preload="none" means real audio metadata never loads under the test
+// harness (no play()-triggering user gesture reaches the iframe), so these
+// mock the audio element's duration/currentTime the way a real file would
+// report them once loaded, then dispatch the events app.js listens for.
+test("local player seek bar tracks loaded metadata and resets when the track changes", async (doc) => {
+  const select = doc.getElementById("playlistSourceSelect");
+  select.value = "local";
+  select.dispatchEvent(new Event("change", { bubbles: true }));
+
+  const audio = doc.getElementById("localPlayerAudio");
+  const seek = doc.getElementById("localPlayerSeek");
+  const currentEl = doc.getElementById("localPlayerCurrentTime");
+  const durationEl = doc.getElementById("localPlayerDuration");
+
+  assertEqual(currentEl.textContent, "0:00", "current time should start at 0:00");
+  assertEqual(durationEl.textContent, "0:00", "duration should show 0:00 before metadata loads");
+  assertEqual(seek.max, "0", "seek max should be 0 before metadata loads");
+
+  Object.defineProperty(audio, "duration", { value: 187, configurable: true });
+  Object.defineProperty(audio, "currentTime", { value: 42, configurable: true });
+  audio.dispatchEvent(new Event("loadedmetadata"));
+
+  assertEqual(durationEl.textContent, "3:07", "duration label should reflect the loaded metadata");
+  assertEqual(seek.max, "187", "seek max should match the loaded duration");
+  assertEqual(seek.value, "42", "seek value should sync to currentTime once metadata is known");
+  assertEqual(currentEl.textContent, "0:42", "current time label should reflect currentTime");
+
+  // Restore the real (native) duration/currentTime accessors — a static
+  // mock would never naturally revert to NaN/0 the way a real browser does
+  // when .src changes, so the reset assertion below needs the genuine
+  // preload="none" behavior, not our frozen stand-in.
+  delete audio.duration;
+  delete audio.currentTime;
+  doc.getElementById("localPlayerNextBtn").click();
+  assertEqual(durationEl.textContent, "0:00", "switching tracks should reset the duration label until the new file's metadata loads");
+  assertEqual(currentEl.textContent, "0:00", "switching tracks should reset the current-time label");
+  assertEqual(seek.max, "0", "switching tracks should reset the seek max");
+});
+
+test("dragging the local player seek bar seeks the audio and ignores timeupdate jitter mid-drag", async (doc) => {
+  const select = doc.getElementById("playlistSourceSelect");
+  select.value = "local";
+  select.dispatchEvent(new Event("change", { bubbles: true }));
+
+  const audio = doc.getElementById("localPlayerAudio");
+  const seek = doc.getElementById("localPlayerSeek");
+  const currentEl = doc.getElementById("localPlayerCurrentTime");
+
+  let mockCurrentTime = 0;
+  Object.defineProperty(audio, "duration", { value: 200, configurable: true });
+  Object.defineProperty(audio, "currentTime", {
+    configurable: true,
+    get: () => mockCurrentTime,
+    set: (v) => { mockCurrentTime = v; },
+  });
+  audio.dispatchEvent(new Event("loadedmetadata"));
+
+  seek.value = "50";
+  seek.dispatchEvent(new Event("input", { bubbles: true }));
+  assertEqual(mockCurrentTime, 50, "dragging the seek bar should set the audio's currentTime");
+  assertEqual(currentEl.textContent, "0:50", "current time label should update live while dragging");
+
+  seek.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
+  seek.value = "80";
+  seek.dispatchEvent(new Event("input", { bubbles: true }));
+  assertEqual(mockCurrentTime, 80, "continuing to drag should keep seeking the audio");
+
+  // Simulate a stale 'timeupdate' arriving mid-drag from the pre-seek
+  // position — it must not yank the handle backward while the user is
+  // still holding it. The label stays on the dragged-to position (1:20,
+  // set live by the 'input' handler above), not the stale timeupdate's.
+  mockCurrentTime = 51;
+  audio.dispatchEvent(new Event("timeupdate"));
+  assertEqual(seek.value, "80", "seek handle should stay put during a drag, ignoring a stale timeupdate");
+  assertEqual(currentEl.textContent, "1:20", "current time label should stay put during a drag, ignoring a stale timeupdate");
+
+  seek.dispatchEvent(new PointerEvent("pointerup", { bubbles: true }));
+  mockCurrentTime = 80;
+  audio.dispatchEvent(new Event("timeupdate"));
+  assertEqual(seek.value, "80", "seek handle should resume following timeupdate once the drag ends");
+  assertEqual(currentEl.textContent, "1:20", "current time label should resume following timeupdate once the drag ends");
+});
+
 // ---- collab mode ----
 
 // Mirrors js/app.js's COLLAB_COLORS — colors (not a "P1"/"P2" chip) are

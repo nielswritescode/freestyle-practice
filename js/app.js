@@ -377,6 +377,9 @@
   const localPlayerLoopBtn = document.getElementById("localPlayerLoopBtn");
   const localPlayerVolumeSlider = document.getElementById("localPlayerVolumeSlider");
   const localPlayerVolumeValue = document.getElementById("localPlayerVolumeValue");
+  const localPlayerSeek = document.getElementById("localPlayerSeek");
+  const localPlayerCurrentTime = document.getElementById("localPlayerCurrentTime");
+  const localPlayerDuration = document.getElementById("localPlayerDuration");
   const localPlayerAudio = document.getElementById("localPlayerAudio");
   const collabToggle = document.getElementById("collabToggle");
   const collabOptionsRow = document.getElementById("collabOptionsRow");
@@ -2208,6 +2211,21 @@
     localPlayerVolumeValue.textContent = `${pct}%`;
     localPlayerAudio.volume = localVolume;
   }
+  // While the user is dragging the seek handle, 'timeupdate' events from
+  // actual playback must not fight the drag by snapping the handle back to
+  // the still-playing position — isScrubbingLocalPlayer suppresses just the
+  // handle/current-time half of the sync until they let go.
+  let isScrubbingLocalPlayer = false;
+  function updateLocalPlayerProgressUI() {
+    const duration = localPlayerAudio.duration;
+    const hasDuration = isFinite(duration) && duration > 0;
+    localPlayerSeek.max = String(hasDuration ? Math.floor(duration) : 0);
+    localPlayerDuration.textContent = hasDuration ? formatMinSec(Math.floor(duration)) : "0:00";
+    if (isScrubbingLocalPlayer) return;
+    const current = Math.floor(localPlayerAudio.currentTime || 0);
+    localPlayerSeek.value = String(current);
+    localPlayerCurrentTime.textContent = formatMinSec(current);
+  }
   function loadLocalBeat(index, opts) {
     const wasPlaying = opts && typeof opts.autoplay === "boolean" ? opts.autoplay : !localPlayerAudio.paused;
     localBeatIndex = ((index % LOCAL_BEATS.length) + LOCAL_BEATS.length) % LOCAL_BEATS.length;
@@ -2216,6 +2234,7 @@
     if (localPlayerAudio.dataset.file !== beat.file) {
       localPlayerAudio.src = beat.file;
       localPlayerAudio.dataset.file = beat.file;
+      updateLocalPlayerProgressUI(); // reset to 0:00/0:00 until the new file's metadata loads
     }
     if (wasPlaying) {
       localPlayerAudio.play().catch(() => {}); // blocked (e.g. no user gesture yet) — the 'play'/'pause' listeners below keep the button honest either way
@@ -2238,6 +2257,17 @@
   localPlayerAudio.addEventListener("play", updateLocalPlayerPlayUI);
   localPlayerAudio.addEventListener("pause", updateLocalPlayerPlayUI);
   localPlayerAudio.addEventListener("ended", updateLocalPlayerPlayUI); // only reachable with loop off
+  localPlayerAudio.addEventListener("loadedmetadata", updateLocalPlayerProgressUI);
+  localPlayerAudio.addEventListener("durationchange", updateLocalPlayerProgressUI);
+  localPlayerAudio.addEventListener("timeupdate", updateLocalPlayerProgressUI);
+  localPlayerSeek.addEventListener("pointerdown", () => { isScrubbingLocalPlayer = true; });
+  localPlayerSeek.addEventListener("input", () => {
+    const t = Number(localPlayerSeek.value);
+    localPlayerCurrentTime.textContent = formatMinSec(t);
+    localPlayerAudio.currentTime = t;
+  });
+  localPlayerSeek.addEventListener("pointerup", () => { isScrubbingLocalPlayer = false; });
+  localPlayerSeek.addEventListener("change", () => { isScrubbingLocalPlayer = false; });
   localPlayerLoopBtn.addEventListener("click", () => {
     localLoop = !localLoop;
     updateLocalPlayerLoopUI();
