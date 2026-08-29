@@ -51,88 +51,90 @@
           <li>The main purpose is to <em>enjoy</em>! Make mistakes, go offbeat and make up nonsense as you go.</li>
         </ol>
       </div>
+      <div class="guidelines-practices" id="practicesPanel" hidden>
+        <div class="row" id="practicesButtonRow">
+          <div class="label">Practices</div>
+        </div>
+      </div>
     </details>
 
-    <div class="panel" id="practicesPanel" hidden>
-      <div class="row" id="practicesButtonRow">
-        <div class="label">Practices</div>
-      </div>
-    </div>
-
-    <div class="panel">
-      <div class="row">
-        <div class="label">Language</div>
-        <button class="pill lang-pill active" data-lang="en">English</button>
-        <button class="pill lang-pill" data-lang="nl">Nederlands</button>
-        <button class="pill lang-pill" data-lang="de">Deutsch</button>
-        <button class="pill lang-pill" data-lang="fr">Français</button>
-        <button class="pill lang-pill" data-lang="es">Español</button>
-        <button class="pill lang-pill" data-lang="it">Italiano</button>
-        <button class="pill lang-pill" data-lang="cs">Čeština</button>
-      </div>
-      <div class="row">
-        <div class="label">How many pairs</div>
-        <button class="pill count-pill" data-count="20">20</button>
-        <button class="pill count-pill" data-count="30">30</button>
-        <button class="pill count-pill" data-count="50">50</button>
-        <input type="number" id="customCount" min="1" max="400" placeholder="custom">
-      </div>
-      <div class="row">
-        <div class="label">Word difficulty mix</div>
-        <div class="diff-slider" id="diffSlider">
-          <div class="diff-slider-track">
-            <div class="diff-seg diff-easy" id="diffSegEasy"></div>
-            <div class="diff-seg diff-intermediate" id="diffSegMid"></div>
-            <div class="diff-seg diff-complex" id="diffSegHard"></div>
+    <details class="panel collapsible-panel" id="optionsDetails" open>
+      <summary>Options</summary>
+      <div class="collapsible-body">
+        <div class="row">
+          <div class="label">Language</div>
+          <button class="pill lang-pill active" data-lang="en">English</button>
+          <button class="pill lang-pill" data-lang="nl">Nederlands</button>
+          <button class="pill lang-pill" data-lang="de">Deutsch</button>
+          <button class="pill lang-pill" data-lang="fr">Français</button>
+          <button class="pill lang-pill" data-lang="es">Español</button>
+          <button class="pill lang-pill" data-lang="it">Italiano</button>
+          <button class="pill lang-pill" data-lang="cs">Čeština</button>
+        </div>
+        <div class="row">
+          <div class="label">How many pairs</div>
+          <button class="pill count-pill" data-count="20">20</button>
+          <button class="pill count-pill" data-count="30">30</button>
+          <button class="pill count-pill" data-count="50">50</button>
+          <input type="number" id="customCount" min="1" max="400" placeholder="custom">
+        </div>
+        <div class="row">
+          <div class="label">Word difficulty mix</div>
+          <div class="diff-slider" id="diffSlider">
+            <div class="diff-slider-track">
+              <div class="diff-seg diff-easy" id="diffSegEasy"></div>
+              <div class="diff-seg diff-intermediate" id="diffSegMid"></div>
+              <div class="diff-seg diff-complex" id="diffSegHard"></div>
+            </div>
+            <button type="button" class="diff-handle" id="diffHandle1" role="slider" aria-label="Easy/intermediate boundary" aria-valuemin="0" aria-valuemax="100"></button>
+            <button type="button" class="diff-handle" id="diffHandle2" role="slider" aria-label="Intermediate/complex boundary" aria-valuemin="0" aria-valuemax="100"></button>
           </div>
-          <button type="button" class="diff-handle" id="diffHandle1" role="slider" aria-label="Easy/intermediate boundary" aria-valuemin="0" aria-valuemax="100"></button>
-          <button type="button" class="diff-handle" id="diffHandle2" role="slider" aria-label="Intermediate/complex boundary" aria-valuemin="0" aria-valuemax="100"></button>
+          <div class="diff-legend">
+            <span class="diff-legend-item diff-easy"><i></i>Easy <b id="diffPctEasy"></b></span>
+            <span class="diff-legend-item diff-intermediate"><i></i>Intermediate <b id="diffPctMid"></b></span>
+            <span class="diff-legend-item diff-complex"><i></i>Complex <b id="diffPctHard"></b></span>
+          </div>
         </div>
-        <div class="diff-legend">
-          <span class="diff-legend-item diff-easy"><i></i>Easy <b id="diffPctEasy"></b></span>
-          <span class="diff-legend-item diff-intermediate"><i></i>Intermediate <b id="diffPctMid"></b></span>
-          <span class="diff-legend-item diff-complex"><i></i>Complex <b id="diffPctHard"></b></span>
+        <div class="row" style="display:none">
+          <div class="label">Rhyme type</div>
+          <button class="pill type-pill type-perfect" data-type="perfect">Perfect</button>
+          <button class="pill type-pill type-near" data-type="near">Near</button>
+          <button class="pill type-pill type-slant" data-type="slant">Slant</button>
+        </div>
+        <div class="row">
+          <label class="checkbox-row">
+            <input type="checkbox" id="playlistToggle" checked>
+            <span>Show music player</span>
+          </label>
+          <select id="playlistSourceSelect" class="player-select">
+            <option value="spotify">Spotify</option>
+            <option value="youtube">YouTube</option>
+            <option value="local">Local Beats</option>
+          </select>
+        </div>
+        <div class="row">
+          <label class="checkbox-row">
+            <input type="checkbox" id="collabToggle">
+            <span>Collab mode</span>
+          </label>
+        </div>
+        <div class="row" id="collabOptionsRow" hidden>
+          <div class="label">Collaborators</div>
+          <input type="number" id="collabCountInput" min="2" max="8" value="2">
+          <div class="collab-swatches" id="collabSwatches"></div>
+        </div>
+        <div class="row" id="collabPairsPerTurnRow" hidden>
+          <div class="label">Pairs per turn</div>
+          <select id="collabPairsPerTurnSelect" class="player-select">
+            <option value="1">1</option>
+            <option value="2">2</option>
+            <option value="3">3</option>
+            <option value="4">4</option>
+            <option value="5">5</option>
+          </select>
         </div>
       </div>
-      <div class="row" style="display:none">
-        <div class="label">Rhyme type</div>
-        <button class="pill type-pill type-perfect" data-type="perfect">Perfect</button>
-        <button class="pill type-pill type-near" data-type="near">Near</button>
-        <button class="pill type-pill type-slant" data-type="slant">Slant</button>
-      </div>
-      <div class="row">
-        <label class="checkbox-row">
-          <input type="checkbox" id="playlistToggle" checked>
-          <span>Show music player</span>
-        </label>
-        <select id="playlistSourceSelect" class="player-select">
-          <option value="spotify">Spotify</option>
-          <option value="youtube">YouTube</option>
-          <option value="local">Local Beats</option>
-        </select>
-      </div>
-      <div class="row">
-        <label class="checkbox-row">
-          <input type="checkbox" id="collabToggle">
-          <span>Collab mode</span>
-        </label>
-      </div>
-      <div class="row" id="collabOptionsRow" hidden>
-        <div class="label">Collaborators</div>
-        <input type="number" id="collabCountInput" min="2" max="8" value="2">
-        <div class="collab-swatches" id="collabSwatches"></div>
-      </div>
-      <div class="row" id="collabPairsPerTurnRow" hidden>
-        <div class="label">Pairs per turn</div>
-        <select id="collabPairsPerTurnSelect" class="player-select">
-          <option value="1">1</option>
-          <option value="2">2</option>
-          <option value="3">3</option>
-          <option value="4">4</option>
-          <option value="5">5</option>
-        </select>
-      </div>
-    </div>
+    </details>
 
     <details class="panel collapsible-panel" id="advancedDetails">
       <summary>Advanced</summary>

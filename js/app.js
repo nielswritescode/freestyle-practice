@@ -77,6 +77,7 @@
   let localLoop = true;
   let localVolume = 0.7;
   let guidelinesOpen = true;
+  let optionsOpen = true;
   let advancedOpen = false;
   let autoRefreshEnabled = false;
   let autoRefreshSeconds = 60;
@@ -214,6 +215,7 @@
       localVolume = stored.localVolume;
     }
     if (typeof stored.guidelinesOpen === "boolean") guidelinesOpen = stored.guidelinesOpen;
+    if (typeof stored.optionsOpen === "boolean") optionsOpen = stored.optionsOpen;
     if (typeof stored.advancedOpen === "boolean") advancedOpen = stored.advancedOpen;
     if (typeof stored.autoRefreshEnabled === "boolean") autoRefreshEnabled = stored.autoRefreshEnabled;
     if (typeof stored.autoRefreshSeconds === "number" && stored.autoRefreshSeconds >= 5) {
@@ -297,6 +299,7 @@
         localLoop,
         localVolume,
         guidelinesOpen: guidelinesDetails.open,
+        optionsOpen: optionsDetails.open,
         advancedOpen: advancedDetails.open,
         autoRefreshEnabled: autoRefreshToggle.checked,
         autoRefreshSeconds,
@@ -382,6 +385,7 @@
   const collabPairsPerTurnRow = document.getElementById("collabPairsPerTurnRow");
   const collabPairsPerTurnSelect = document.getElementById("collabPairsPerTurnSelect");
   const guidelinesDetails = document.getElementById("guidelinesDetails");
+  const optionsDetails = document.getElementById("optionsDetails");
   const advancedDetails = document.getElementById("advancedDetails");
   const revealModePills = document.querySelectorAll(".reveal-mode-pill");
   const autoRefreshToggle = document.getElementById("autoRefreshToggle");
@@ -2267,6 +2271,7 @@
   });
 
   guidelinesDetails.addEventListener("toggle", saveSettings);
+  optionsDetails.addEventListener("toggle", saveSettings);
   advancedDetails.addEventListener("toggle", saveSettings);
 
   // Quiz/reveal mode: masks word B (the "answer") in every pair card at one
@@ -2309,6 +2314,7 @@
 
   // ---- init ----
   guidelinesDetails.open = guidelinesOpen;
+  optionsDetails.open = optionsOpen;
   advancedDetails.open = advancedOpen;
   setDefStyleUI();
   updateRevealModeUI();
