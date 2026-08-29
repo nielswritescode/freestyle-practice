@@ -309,6 +309,20 @@ test("word deletion removes only the clicked pair, not a fresh batch", async (do
   assertEqual(JSON.stringify(afterWords), JSON.stringify(firstWords), "the remaining cards should be untouched, not a new random batch");
 });
 
+// ---- copy rhyme pair: leaves the card alone, just shows feedback ----
+
+test("copy rhyme pair mode shows feedback without removing the pair", async (doc) => {
+  const before = doc.querySelectorAll(".pair-card").length;
+  doc.querySelector('.def-style-pill[data-def-style="copy"]').click();
+  const wordEl = doc.querySelector(".pair-card .word-copy");
+  const defEl = wordEl.closest(".word-slot").querySelector(".word-def");
+  assert(defEl.hidden, "feedback should be hidden before clicking a copy word");
+  wordEl.click();
+  await sleep(50); // clipboard write is async; let the then/catch feedback land
+  assert(!defEl.hidden, "feedback should appear after clicking a copy word");
+  assertEqual(doc.querySelectorAll(".pair-card").length, before, "copy mode should not remove any pair card");
+});
+
 // ---- timer end-to-end ----
 
 test("timer: simple duration starts a countdown that can be stopped", async (doc) => {

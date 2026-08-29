@@ -81,7 +81,7 @@
   let advancedOpen = false;
   let autoRefreshEnabled = false;
   let autoRefreshSeconds = 60;
-  let defStyle = "links"; // 'links' | 'simple' | 'full' | 'delete'
+  let defStyle = "links"; // 'links' | 'simple' | 'full' | 'delete' | 'copy'
   let activeTypes = new Set(["perfect"]); // near still hidden; slant toggled via #slantToggle below
 
   // Only meaningful while "slant" is active (see slantRatioRow/
@@ -221,7 +221,7 @@
     if (typeof stored.autoRefreshSeconds === "number" && stored.autoRefreshSeconds >= 5) {
       autoRefreshSeconds = stored.autoRefreshSeconds;
     }
-    if (["links", "simple", "full", "delete"].includes(stored.defStyle)) {
+    if (["links", "simple", "full", "delete", "copy"].includes(stored.defStyle)) {
       defStyle = stored.defStyle;
     }
     if (stored.deletedWordsByLang && typeof stored.deletedWordsByLang === "object") {
@@ -1832,6 +1832,8 @@
       inner = `<span class="word word-full" data-pair-part="${part}" data-word="${word}">${display}</span>`;
     } else if (defStyle === "delete") {
       inner = `<span class="word word-delete" data-pair-part="${part}" data-word="${word}">${display}</span>`;
+    } else if (defStyle === "copy") {
+      inner = `<span class="word word-copy" data-pair-part="${part}" data-word="${word}">${display}</span>`;
     } else {
       inner = `<span class="word word-simple" data-pair-part="${part}" data-word="${word}">${display}</span>`;
     }
@@ -1910,10 +1912,41 @@
     }
   }
 
+  // Copy-rhyme-pair mode: clicking either word copies the whole pair (e.g.
+  // "cat / hat") to the clipboard so it can be pasted elsewhere without
+  // retyping. Feedback goes in that word's own .word-def slot — the same
+  // spot Simple Definition uses — since it's already there per word and
+  // won't shift the layout.
+  function handleCopyRhymePair(wordEl) {
+    const card = wordEl.closest(".pair-card");
+    if (!card) return;
+    const text = [...card.querySelectorAll(".word-copy")].map((el) => el.dataset.word).join(" / ");
+    const slot = wordEl.closest(".word-slot");
+    const defEl = slot.querySelector(".word-def");
+    const showFeedback = (msg) => {
+      defEl.textContent = msg;
+      defEl.hidden = false;
+      clearTimeout(defEl._copyFeedbackTimeout);
+      defEl._copyFeedbackTimeout = setTimeout(() => { defEl.hidden = true; }, 2000);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text)
+        .then(() => showFeedback(`Copied "${text}"`))
+        .catch(() => showFeedback(`Couldn't copy — "${text}"`));
+    } else {
+      showFeedback(`Copy not supported — "${text}"`);
+    }
+  }
+
   pairsContainer.addEventListener("click", (e) => {
     const deleteWord = e.target.closest(".word-delete");
     if (deleteWord) {
       handleWordDeletion(deleteWord);
+      return;
+    }
+    const copyWord = e.target.closest(".word-copy");
+    if (copyWord) {
+      handleCopyRhymePair(copyWord);
       return;
     }
     const simpleWord = e.target.closest(".word-simple");
