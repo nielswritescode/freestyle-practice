@@ -145,6 +145,14 @@ test("every JS-toggled hidden panel actually collapses to display:none", async (
   assertEqual(displayOf(doc.getElementById("timerSequence")), "flex", "timerSequence should show in Multi mode");
 });
 
+// ---- custom word list (CSV upload): WIP, hidden from the UI for now ----
+
+test("custom word list controls stay hidden while the feature is WIP", async (doc) => {
+  doc.getElementById("advancedDetails").open = true;
+  assertEqual(displayOf(doc.getElementById("csvRow")), "none", "custom word list row should stay hidden while WIP");
+  assertEqual(displayOf(doc.getElementById("csvStatus")), "none", "custom word list status should stay hidden while WIP");
+});
+
 // ---- slant-rhyme toggle: only English has the curated data behind it ----
 
 test("slant rhyme toggle is only shown for languages with curated slant data", async (doc) => {
