@@ -842,26 +842,22 @@ test("dragging the local player seek bar seeks playback and ignores progress-loo
   assert(Math.abs(Number(seek.value) - liveOffset) <= 1, "seek handle should resume following the real offset once the drag ends");
 });
 
-test("switching away from Local Beats pauses the native audio player", async (doc) => {
+test("switching away from Local Beats pauses playback", async (doc, win) => {
   const select = doc.getElementById("playlistSourceSelect");
   select.value = "local";
   select.dispatchEvent(new Event("change", { bubbles: true }));
 
-  // preload="none" means .play() never really starts under the test harness,
-  // so fake an in-progress beat by overriding .paused/.pause() the way the
-  // seek-bar tests fake .currentTime — this is the only way to observe
-  // updatePlaylistSource()'s "was it playing" branch without a real gesture.
-  const audio = doc.getElementById("localPlayerAudio");
-  let paused = false;
-  let pauseCalls = 0;
-  Object.defineProperty(audio, "paused", { get: () => paused, configurable: true });
-  audio.pause = () => { paused = true; pauseCalls++; };
+  // The local player has no <audio> element to read (see the Web Audio
+  // rewrite note above win.__localBeatsDebug) — decodeAudioData isn't
+  // gated by the autoplay gesture policy, so a real click genuinely starts
+  // playback under the test harness, and isPlaying reflects the real state.
+  doc.getElementById("localPlayerPlayBtn").click();
+  await waitFor(() => win.__localBeatsDebug.isPlaying, 5000);
 
   select.value = "youtube";
   select.dispatchEvent(new Event("change", { bubbles: true }));
 
-  assertEqual(pauseCalls, 1, "switching from Local Beats to another source should pause the native audio element");
-  assert(paused, "audio element should end up paused after switching away from Local Beats");
+  assert(!win.__localBeatsDebug.isPlaying, "switching away from Local Beats should stop playback");
 });
 
 // ---- collab mode ----
