@@ -164,6 +164,35 @@ test("slant rhyme toggle is only shown for languages with curated slant data", a
   assertEqual(displayOf(doc.getElementById("slantToggleRow")), "flex", "slant toggle should reappear back on English");
 });
 
+// ---- sensitive-word row: hidden for languages with no curated list ----
+
+test("sensitive-word row is hidden only for a language with no curated list", async (doc) => {
+  assertEqual(displayOf(doc.getElementById("sensitiveModeRow")), "flex", "sensitive-word row should be visible for English");
+
+  doc.querySelector('.lang-pill[data-lang="nl"]').click();
+  assertEqual(displayOf(doc.getElementById("sensitiveModeRow")), "flex", "sensitive-word row should stay visible for a language with a curated list");
+
+  doc.querySelector('.lang-pill[data-lang="cs"]').click();
+  assertEqual(displayOf(doc.getElementById("sensitiveModeRow")), "none", "sensitive-word row should hide for Czech, which has no curated list");
+
+  doc.querySelector('.lang-pill[data-lang="en"]').click();
+  assertEqual(displayOf(doc.getElementById("sensitiveModeRow")), "flex", "sensitive-word row should reappear back on English");
+});
+
+// ---- Simple Definition pill: hidden where WordNet has no coverage ----
+
+test("Simple Definition pill is only shown for English", async (doc) => {
+  const pill = doc.querySelector('.def-style-pill[data-def-style="simple"]');
+  const visibleDisplay = displayOf(pill);
+  assert(visibleDisplay !== "none", "Simple Definition pill should be visible for English");
+
+  doc.querySelector('.lang-pill[data-lang="nl"]').click();
+  assertEqual(displayOf(pill), "none", "Simple Definition pill should hide for a language WordNet doesn't cover");
+
+  doc.querySelector('.lang-pill[data-lang="en"]').click();
+  assertEqual(displayOf(pill), visibleDisplay, "Simple Definition pill should reappear back on English");
+});
+
 // ---- slant ratio / min-score sliders: only meaningful once slant is on ----
 
 test("slant ratio and min-score sliders only show once slant rhymes are enabled", async (doc) => {

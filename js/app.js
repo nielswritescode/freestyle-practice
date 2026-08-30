@@ -394,6 +394,7 @@
   const autoRefreshToggle = document.getElementById("autoRefreshToggle");
   const autoRefreshSecondsInput = document.getElementById("autoRefreshSeconds");
   const defStylePills = document.querySelectorAll(".def-style-pill");
+  const defStyleSimplePill = document.querySelector('.def-style-pill[data-def-style="simple"]');
   const showAllDefsRow = document.getElementById("showAllDefsRow");
   const showAllDefsBtn = document.getElementById("showAllDefsBtn");
   const downloadDeletedBtn = document.getElementById("downloadDeletedBtn");
@@ -421,6 +422,7 @@
   const sylHandleMin = document.getElementById("sylHandleMin");
   const sylHandleMax = document.getElementById("sylHandleMax");
   const sylRangeValue = document.getElementById("sylRangeValue");
+  const sensitiveModeRow = document.getElementById("sensitiveModeRow");
   const sensitiveModePills = document.querySelectorAll(".sensitive-mode-pill");
   const categoryRow = document.getElementById("categoryRow");
   const categoryPills = document.querySelectorAll(".category-pill");
@@ -753,6 +755,14 @@
     categoryRow.hidden = currentLanguage !== "en";
     // Word type (POS) is English-only too (see wordPosOf).
     posRow.hidden = currentLanguage !== "en";
+    // The sensitive-word list has no entries at all for some languages
+    // (currently Czech — see data/sensitive-words.js) — hide the row there
+    // rather than offer Filter out/Only modes that would silently do nothing.
+    sensitiveModeRow.hidden = !(sensitiveWordSets[currentLanguage] && sensitiveWordSets[currentLanguage].size);
+    // Simple Definition's glosses come from WORDNET_DEFS, which only covers
+    // English — hide the pill for every other language rather than offer a
+    // style that can only ever show "No definition found."
+    defStyleSimplePill.hidden = currentLanguage !== "en";
   }
 
   // The ratio/min-score sliders only make sense once slant rhymes are both

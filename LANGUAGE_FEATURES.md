@@ -2,12 +2,14 @@ Language support overview — RhymeJoy
 =====================================
 
 RhymeJoy (rg-latest.html) supports 7 languages. English is the most fully
-built-out: several features only work there today, and a few others "exist"
-in every language's UI but quietly do nothing outside English. This file is
-a snapshot of what actually works per language, split into front-end
-(what you click/see) and back-end (how rhymes get computed). Written from
-reading the current source, not from a spec — see the file references if
-something needs double-checking after future changes.
+built-out: several features only work there today. The UI hides a control
+for any language it has no real support for (rather than showing an option
+that would silently do nothing), so what you see in the app already matches
+what's listed here as "No" below. This file is a snapshot of what actually
+works per language, split into front-end (what you click/see) and back-end
+(how rhymes get computed). Written from reading the current source, not
+from a spec — see the file references if something needs double-checking
+after future changes.
 
 The 7 languages
 ----------------
@@ -53,9 +55,9 @@ At a glance: what works where
 | Word deletion / Copy rhyme pair modes | Yes | Yes | Yes | Yes | Yes | Yes | Yes |
 | Custom word list upload (CSV) | Hidden (WIP) everywhere — see below | | | | | | |
 
-\* The "Simple Definition" button is clickable in every language, but its
-definitions come from WordNet, which is English-only. Outside English it
-will always show "No definition found."
+\* The "Simple Definition" button is hidden outside English — its
+definitions come from WordNet, which is English-only, so the button would
+otherwise always show "No definition found."
 
 How each language turns spelling into rhymes
 ----------------------------------------------
@@ -140,12 +142,11 @@ Known gaps for non-English languages
 - No word category filter (Spiritual, Food, Animals, Work, Love, Money,
   Nature, Body, Street) and no word type filter (noun/verb/adjective/adverb)
   — those tags only exist for the English word list.
-- "Simple Definition" mode never finds a definition — the underlying
-  WordNet data is English-only.
-- The sensitive-word filter has no data at all for Czech (so "Filter out"
-  and "Only" modes are no-ops there), and its lists for the other 5
-  non-English languages are a smaller starting curation than English's,
-  not a full pass.
+- "Simple Definition" is hidden outside English — the underlying WordNet
+  data is English-only, so it could never find a definition elsewhere.
+- The sensitive-word filter row is hidden entirely for Czech, which has no
+  curated list at all. The other 5 non-English languages do show it, but
+  their lists are a smaller starting curation than English's, not a full pass.
 - If/when the custom word-list upload (CSV) comes out of its current
   hidden/WIP state, only English will accept a word it doesn't already
   recognize (via its spelling-to-sound guesser) — every other language
