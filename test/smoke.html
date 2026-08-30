@@ -300,6 +300,7 @@ test('sensitive mode "only" produces pairs with exactly one flagged word, always
 // ---- word deletion: removes just the one card, no full refresh ----
 
 test("word deletion removes only the clicked pair, not a fresh batch", async (doc) => {
+  assertEqual(displayOf(doc.getElementById("deletedWordsSection")), "none", "deleted words section should start hidden with nothing deleted");
   const before = doc.querySelectorAll(".pair-card").length;
   const firstWords = [...doc.querySelectorAll(".pair-card")].slice(1).map((c) => c.querySelector(".word").textContent);
   doc.querySelector('.def-style-pill[data-def-style="delete"]').click();
@@ -307,6 +308,9 @@ test("word deletion removes only the clicked pair, not a fresh batch", async (do
   assertEqual(doc.querySelectorAll(".pair-card").length, before - 1, "exactly one card should be removed");
   const afterWords = [...doc.querySelectorAll(".pair-card")].map((c) => c.querySelector(".word").textContent);
   assertEqual(JSON.stringify(afterWords), JSON.stringify(firstWords), "the remaining cards should be untouched, not a new random batch");
+  assertEqual(displayOf(doc.getElementById("deletedWordsSection")), "block", "deleted words section should reveal itself once a word is deleted");
+  doc.getElementById("clearDeletedBtn").click();
+  assertEqual(displayOf(doc.getElementById("deletedWordsSection")), "none", "deleted words section should re-hide once cleared");
 });
 
 // ---- timer end-to-end ----
@@ -631,6 +635,32 @@ test("info button shows its tooltip message as a status line on click", (doc) =>
   assertEqual(doc.getElementById("shareStatus").textContent, infoBtn.title, "clicking the info button should surface its title text as a status message");
 });
 
+// bugReportBtn is a real <a href target="_blank"> — .click() would actually
+// navigate/open a tab, so cancel the default action before clicking it,
+// same as a real click that gets preventDefault()'d would.
+test("bug report link shows the feature-support reminder once, then never again", async (doc) => {
+  const infoBtn = doc.getElementById("infoBtn");
+  const bugReportBtn = doc.getElementById("bugReportBtn");
+  const shareStatus = doc.getElementById("shareStatus");
+  bugReportBtn.addEventListener("click", (e) => e.preventDefault());
+
+  bugReportBtn.click();
+  assertEqual(shareStatus.textContent, infoBtn.title, "first Bug Report click should surface the feature-support reminder");
+
+  shareStatus.textContent = "";
+  bugReportBtn.click();
+  assertEqual(shareStatus.textContent, "", "a second Bug Report click in the same session should not repeat the reminder");
+
+  const fresh = await loadFreshApp();
+  try {
+    fresh.doc.getElementById("bugReportBtn").addEventListener("click", (e) => e.preventDefault());
+    fresh.doc.getElementById("bugReportBtn").click();
+    assertEqual(fresh.doc.getElementById("shareStatus").textContent, "", "the reminder should not resurface after a reload once it's been shown once");
+  } finally {
+    fresh.iframe.remove();
+  }
+});
+
 // ---- local beats player ----
 
 test("switching the player source to Local Beats shows the local player and hides the embeds", async (doc) => {
@@ -755,6 +785,28 @@ test("dragging the local player seek bar seeks the audio and ignores timeupdate 
   audio.dispatchEvent(new Event("timeupdate"));
   assertEqual(seek.value, "80", "seek handle should resume following timeupdate once the drag ends");
   assertEqual(currentEl.textContent, "1:20", "current time label should resume following timeupdate once the drag ends");
+});
+
+test("switching away from Local Beats pauses the native audio player", async (doc) => {
+  const select = doc.getElementById("playlistSourceSelect");
+  select.value = "local";
+  select.dispatchEvent(new Event("change", { bubbles: true }));
+
+  // preload="none" means .play() never really starts under the test harness,
+  // so fake an in-progress beat by overriding .paused/.pause() the way the
+  // seek-bar tests fake .currentTime — this is the only way to observe
+  // updatePlaylistSource()'s "was it playing" branch without a real gesture.
+  const audio = doc.getElementById("localPlayerAudio");
+  let paused = false;
+  let pauseCalls = 0;
+  Object.defineProperty(audio, "paused", { get: () => paused, configurable: true });
+  audio.pause = () => { paused = true; pauseCalls++; };
+
+  select.value = "youtube";
+  select.dispatchEvent(new Event("change", { bubbles: true }));
+
+  assertEqual(pauseCalls, 1, "switching from Local Beats to another source should pause the native audio element");
+  assert(paused, "audio element should end up paused after switching away from Local Beats");
 });
 
 // ---- collab mode ----
