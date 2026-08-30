@@ -51,6 +51,20 @@ function assertEqual(actual, expected, msg) {
 }
 function displayOf(el) { return getComputedStyle(el).display; }
 function sleep(ms) { return new Promise((r) => setTimeout(r, ms)); }
+async function waitFor(predicate, timeoutMs) {
+  const start = Date.now();
+  while (!predicate()) {
+    if (Date.now() - start > timeoutMs) throw new Error("waitFor timed out after " + timeoutMs + "ms");
+    await sleep(20);
+  }
+}
+// Mirrors js/app.js's formatMinSec, so tests can assert against a real
+// decoded duration without hardcoding a fake one.
+function fmt(totalSeconds) {
+  const m = Math.floor(totalSeconds / 60);
+  const s = Math.floor(totalSeconds) % 60;
+  return `${m}:${String(s).padStart(2, "0")}`;
+}
 
 function loadFreshApp() {
   return new Promise((resolve, reject) => {
@@ -690,7 +704,7 @@ test("local player next/prev cycle through beats and the loop toggle persists", 
   const wasActive = loopBtn.classList.contains("active");
   loopBtn.click();
   assertEqual(loopBtn.classList.contains("active"), !wasActive, "loop button should toggle its active state");
-  assertEqual(doc.getElementById("localPlayerAudio").loop, !wasActive, "audio element's loop property should follow the toggle");
+  assertEqual(win.__localBeatsDebug.loop, !wasActive, "internal loop flag should follow the toggle");
 
   const fresh = await loadFreshApp();
   try {
@@ -704,87 +718,85 @@ test("local player next/prev cycle through beats and the loop toggle persists", 
   }
 });
 
-// preload="none" means real audio metadata never loads under the test
-// harness (no play()-triggering user gesture reaches the iframe), so these
-// mock the audio element's duration/currentTime the way a real file would
-// report them once loaded, then dispatch the events app.js listens for.
-test("local player seek bar tracks loaded metadata and resets when the track changes", async (doc) => {
+// The local player decodes each beat into a Web Audio AudioBuffer rather
+// than using an <audio> element (see js/app.js's "local beats player"
+// section for why: <audio loop> reintroduces a decode-boundary click on
+// every repeat). decodeAudioData isn't gated by the user-gesture autoplay
+// policy the way <audio>.play() is, so clicking Play under this harness
+// genuinely decodes the real bundled beat file — no mocking needed, just a
+// real wait for the async decode to land.
+test("local player seek bar tracks loaded metadata and resets when the track changes", async (doc, win) => {
   const select = doc.getElementById("playlistSourceSelect");
   select.value = "local";
   select.dispatchEvent(new Event("change", { bubbles: true }));
 
-  const audio = doc.getElementById("localPlayerAudio");
   const seek = doc.getElementById("localPlayerSeek");
   const currentEl = doc.getElementById("localPlayerCurrentTime");
   const durationEl = doc.getElementById("localPlayerDuration");
+  const track = doc.getElementById("localPlayerTrack");
 
   assertEqual(currentEl.textContent, "0:00", "current time should start at 0:00");
   assertEqual(durationEl.textContent, "0:00", "duration should show 0:00 before metadata loads");
   assertEqual(seek.max, "0", "seek max should be 0 before metadata loads");
 
-  Object.defineProperty(audio, "duration", { value: 187, configurable: true });
-  Object.defineProperty(audio, "currentTime", { value: 42, configurable: true });
-  audio.dispatchEvent(new Event("loadedmetadata"));
+  doc.getElementById("localPlayerPlayBtn").click();
+  await waitFor(() => win.__localBeatsDebug.duration > 0, 5000);
 
-  assertEqual(durationEl.textContent, "3:07", "duration label should reflect the loaded metadata");
-  assertEqual(seek.max, "187", "seek max should match the loaded duration");
-  assertEqual(seek.value, "42", "seek value should sync to currentTime once metadata is known");
-  assertEqual(currentEl.textContent, "0:42", "current time label should reflect currentTime");
+  const duration = win.__localBeatsDebug.duration;
+  assertEqual(seek.max, String(Math.floor(duration)), "seek max should match the real decoded duration");
+  assertEqual(durationEl.textContent, fmt(duration), "duration label should reflect the loaded metadata");
 
-  // Restore the real (native) duration/currentTime accessors — a static
-  // mock would never naturally revert to NaN/0 the way a real browser does
-  // when .src changes, so the reset assertion below needs the genuine
-  // preload="none" behavior, not our frozen stand-in.
-  delete audio.duration;
-  delete audio.currentTime;
+  const firstTrackName = track.textContent;
   doc.getElementById("localPlayerNextBtn").click();
   assertEqual(durationEl.textContent, "0:00", "switching tracks should reset the duration label until the new file's metadata loads");
   assertEqual(currentEl.textContent, "0:00", "switching tracks should reset the current-time label");
   assertEqual(seek.max, "0", "switching tracks should reset the seek max");
+
+  await waitFor(() => win.__localBeatsDebug.duration > 0 && track.textContent !== firstTrackName, 5000);
+  assert(durationEl.textContent !== "0:00", "duration label should reflect the newly loaded track's metadata");
 });
 
-test("dragging the local player seek bar seeks the audio and ignores timeupdate jitter mid-drag", async (doc) => {
+test("dragging the local player seek bar seeks playback and ignores progress-loop jitter mid-drag", async (doc, win) => {
   const select = doc.getElementById("playlistSourceSelect");
   select.value = "local";
   select.dispatchEvent(new Event("change", { bubbles: true }));
 
-  const audio = doc.getElementById("localPlayerAudio");
+  doc.getElementById("localPlayerPlayBtn").click();
+  await waitFor(() => win.__localBeatsDebug.duration > 0, 5000);
+  const duration = win.__localBeatsDebug.duration;
+
   const seek = doc.getElementById("localPlayerSeek");
   const currentEl = doc.getElementById("localPlayerCurrentTime");
 
-  let mockCurrentTime = 0;
-  Object.defineProperty(audio, "duration", { value: 200, configurable: true });
-  Object.defineProperty(audio, "currentTime", {
-    configurable: true,
-    get: () => mockCurrentTime,
-    set: (v) => { mockCurrentTime = v; },
-  });
-  audio.dispatchEvent(new Event("loadedmetadata"));
-
-  seek.value = "50";
+  const targetA = Math.floor(duration / 4);
+  seek.value = String(targetA);
   seek.dispatchEvent(new Event("input", { bubbles: true }));
-  assertEqual(mockCurrentTime, 50, "dragging the seek bar should set the audio's currentTime");
-  assertEqual(currentEl.textContent, "0:50", "current time label should update live while dragging");
+  assertEqual(currentEl.textContent, fmt(targetA), "current time label should update live while dragging");
+  assert(Math.abs(win.__localBeatsDebug.offset - targetA) < 1, "dragging the seek bar should seek actual playback to the dragged-to position");
 
   seek.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
-  seek.value = "80";
+  const targetB = Math.floor(duration / 2);
+  seek.value = String(targetB);
   seek.dispatchEvent(new Event("input", { bubbles: true }));
-  assertEqual(mockCurrentTime, 80, "continuing to drag should keep seeking the audio");
+  assert(Math.abs(win.__localBeatsDebug.offset - targetB) < 1, "continuing to drag should keep seeking playback");
 
-  // Simulate a stale 'timeupdate' arriving mid-drag from the pre-seek
-  // position — it must not yank the handle backward while the user is
-  // still holding it. The label stays on the dragged-to position (1:20,
-  // set live by the 'input' handler above), not the stale timeupdate's.
-  mockCurrentTime = 51;
-  audio.dispatchEvent(new Event("timeupdate"));
-  assertEqual(seek.value, "80", "seek handle should stay put during a drag, ignoring a stale timeupdate");
-  assertEqual(currentEl.textContent, "1:20", "current time label should stay put during a drag, ignoring a stale timeupdate");
+  // Simulate a progress-loop tick landing mid-drag, as real playback
+  // advancing underneath the held handle would do — it must not yank the
+  // handle backward while the user is still holding it.
+  win.__localBeatsDebug.refreshProgressUI();
+  assertEqual(seek.value, String(targetB), "seek handle should stay put during a drag, ignoring an in-flight progress update");
+  assertEqual(currentEl.textContent, fmt(targetB), "current time label should stay put during a drag, ignoring an in-flight progress update");
 
   seek.dispatchEvent(new PointerEvent("pointerup", { bubbles: true }));
-  mockCurrentTime = 80;
-  audio.dispatchEvent(new Event("timeupdate"));
-  assertEqual(seek.value, "80", "seek handle should resume following timeupdate once the drag ends");
-  assertEqual(currentEl.textContent, "1:20", "current time label should resume following timeupdate once the drag ends");
+  win.__localBeatsDebug.refreshProgressUI();
+  // Headless Chrome has no real audio output device, so the Web Audio clock
+  // can advance much faster than wall time between statements — comparing
+  // against the stale targetB here would be unreliable regardless of
+  // tolerance. Compare against a live read instead: the point of this
+  // assertion is just that the handle now tracks currentLocalOffset() again
+  // rather than staying stuck at the pre-release value.
+  const liveOffset = Math.floor(win.__localBeatsDebug.offset);
+  assert(Math.abs(Number(seek.value) - liveOffset) <= 1, "seek handle should resume following the real offset once the drag ends");
 });
 
 test("switching away from Local Beats pauses the native audio player", async (doc) => {

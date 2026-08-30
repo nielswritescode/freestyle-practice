@@ -1,8 +1,13 @@
 // Royalty-free instrumental beats bundled with the app for the "Local Beats"
-// player (see updateLocalPlayer* in js/app.js). Each file was trimmed to its
-// steady groove and had its loop point crossfaded so it repeats seamlessly
-// via the <audio loop> attribute — no click at the seam, no fade-in/out to
-// break an infinite practice session.
+// player (see updateLocalPlayer* in js/app.js). Each file is trimmed to a
+// bar-aligned loop region (tempo-detected, picked by cross-correlating the
+// seam against candidate loop lengths) well before any outro fade, with the
+// loop point crossfaded against the audio that naturally follows it. The
+// player decodes these once into a Web Audio AudioBuffer and loops that
+// buffer directly rather than using <audio loop> — MP3's block-based
+// decoding reintroduces a small discontinuity at the file boundary on every
+// repeat of a looped <audio> element, so looping the decoded buffer instead
+// is what actually makes the repeat sample-accurate.
 const LOCAL_BEATS = [
   { title: "C.B.P.D", genre: "Trap", file: "beats/cbpd-trap.mp3" },
   { title: "Praise the Lord", genre: "Trap", file: "beats/praise-the-lord-trap.mp3" },

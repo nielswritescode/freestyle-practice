@@ -391,7 +391,6 @@
   const localPlayerSeek = document.getElementById("localPlayerSeek");
   const localPlayerCurrentTime = document.getElementById("localPlayerCurrentTime");
   const localPlayerDuration = document.getElementById("localPlayerDuration");
-  const localPlayerAudio = document.getElementById("localPlayerAudio");
   const collabToggle = document.getElementById("collabToggle");
   const collabOptionsRow = document.getElementById("collabOptionsRow");
   const collabCountInput = document.getElementById("collabCountInput");
@@ -2206,8 +2205,8 @@
     localPlayer.hidden = source !== "local";
     if (source === "local") {
       loadLocalBeat(localBeatIndex, { autoplay: false }); // never auto-play on a bare source switch — browsers block it without a gesture anyway, and it'd be a surprise if they didn't
-    } else if (!localPlayerAudio.paused) {
-      localPlayerAudio.pause();
+    } else if (localIsPlaying || localWantsPlaying) {
+      setLocalPlaying(false);
     }
   }
   playlistToggle.addEventListener("change", () => {
@@ -2220,51 +2219,182 @@
   });
 
   // ---- local beats player ----
-  // Each bundled beat (data/beats-data.js) was pre-processed to loop
-  // seamlessly, so the native <audio loop> attribute is enough for
-  // "continues indefinitely" — no manual seam-stitching needed here.
+  // Each bundled beat (data/beats-data.js) was trimmed to a bar-aligned loop
+  // point. That alone isn't enough for gapless repeats though: native
+  // <audio loop> re-runs the container/codec decode pipeline from byte 0 on
+  // every repeat, and MP3's block-based decoding reintroduces a tiny bit of
+  // encoder priming/padding at that boundary every single time — an
+  // audible click or gap on every repeat no matter how cleanly the file
+  // itself is trimmed. So instead we decode each beat once, up front, into
+  // a single continuous Web Audio AudioBuffer and loop *that* — an
+  // AudioBufferSourceNode's loop point is just an index into already-decoded
+  // PCM, so it never re-touches the codec boundary and is sample-accurate.
+  let localAudioCtx = null;
+  let localGainNode = null;
+  let localSourceNode = null;
+  let localBuffer = null;
+  let localCurrentFile = null;
+  let localIsPlaying = false;
+  let localWantsPlaying = false; // user intent; applied once the buffer is ready if decode is still in flight
+  let localPlayOffset = 0; // seconds into the buffer where playback last started/paused
+  let localPlayStartedAt = 0; // localAudioCtx.currentTime when the current source node started
+  let localLoadToken = 0;
+  let localProgressRAF = null;
+  const localBufferCache = new Map(); // beat.file -> Promise<AudioBuffer>, decoded at most once per file
+
+  function getLocalAudioCtx() {
+    if (!localAudioCtx) {
+      localAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      localGainNode = localAudioCtx.createGain();
+      localGainNode.gain.value = localVolume;
+      localGainNode.connect(localAudioCtx.destination);
+    }
+    return localAudioCtx;
+  }
+  function decodeLocalBeat(file) {
+    if (localBufferCache.has(file)) return localBufferCache.get(file);
+    const ctx = getLocalAudioCtx();
+    const promise = fetch(file)
+      .then((r) => r.arrayBuffer())
+      .then((data) => ctx.decodeAudioData(data));
+    localBufferCache.set(file, promise);
+    return promise;
+  }
+  function stopLocalPlaybackNode() {
+    if (localSourceNode) {
+      localSourceNode.onended = null; // this is a deliberate stop, not the track reaching its natural end
+      try { localSourceNode.stop(); } catch (e) {}
+      localSourceNode.disconnect();
+      localSourceNode = null;
+    }
+  }
+  function currentLocalOffset() {
+    if (!localBuffer) return 0;
+    if (!localIsPlaying) return localPlayOffset;
+    const elapsed = localPlayOffset + (localAudioCtx.currentTime - localPlayStartedAt);
+    return localLoop ? elapsed % localBuffer.duration : Math.min(elapsed, localBuffer.duration);
+  }
+  function startLocalPlayback(offset) {
+    stopLocalPlaybackNode();
+    const ctx = getLocalAudioCtx();
+    ctx.resume().catch(() => {}); // blocked (e.g. no user gesture yet) — the play/pause UI stays honest via localWantsPlaying either way
+    const node = ctx.createBufferSource();
+    node.buffer = localBuffer;
+    node.loop = localLoop;
+    node.connect(localGainNode);
+    const dur = localBuffer.duration;
+    const off = dur > 0 ? ((offset % dur) + dur) % dur : 0;
+    node.start(0, off);
+    node.onended = () => {
+      if (localSourceNode !== node) return; // superseded by a later stop/seek/switch
+      localSourceNode = null;
+      localIsPlaying = false;
+      localWantsPlaying = false;
+      localPlayOffset = 0;
+      stopLocalProgressLoop();
+      updateLocalPlayerPlayUI();
+    };
+    localSourceNode = node;
+    localPlayStartedAt = ctx.currentTime;
+    localPlayOffset = off;
+    localIsPlaying = true;
+  }
+  function startLocalProgressLoop() {
+    if (localProgressRAF) return;
+    const tick = () => {
+      updateLocalPlayerProgressUI();
+      localProgressRAF = requestAnimationFrame(tick);
+    };
+    localProgressRAF = requestAnimationFrame(tick);
+  }
+  function stopLocalProgressLoop() {
+    if (localProgressRAF) {
+      cancelAnimationFrame(localProgressRAF);
+      localProgressRAF = null;
+    }
+  }
+  function setLocalPlaying(shouldPlay) {
+    localWantsPlaying = shouldPlay;
+    if (!localBuffer) { updateLocalPlayerPlayUI(); return; } // still decoding — applied once the promise resolves
+    if (shouldPlay) {
+      if (!localIsPlaying) {
+        startLocalPlayback(localPlayOffset);
+        startLocalProgressLoop();
+      }
+    } else if (localIsPlaying) {
+      localPlayOffset = currentLocalOffset();
+      stopLocalPlaybackNode();
+      localIsPlaying = false;
+      stopLocalProgressLoop();
+    }
+    updateLocalPlayerPlayUI();
+  }
+  function seekLocalPlayback(t) {
+    if (!localBuffer) return;
+    const target = clamp(t, 0, localBuffer.duration);
+    localPlayOffset = target;
+    if (localIsPlaying) startLocalPlayback(target);
+  }
   function updateLocalPlayerPlayUI() {
-    localPlayerPlayBtn.textContent = localPlayerAudio.paused ? "Play" : "Pause";
+    const showPause = localIsPlaying || (localWantsPlaying && !localBuffer);
+    localPlayerPlayBtn.textContent = showPause ? "Pause" : "Play";
   }
   function updateLocalPlayerLoopUI() {
     localPlayerLoopBtn.classList.toggle("active", localLoop);
-    localPlayerAudio.loop = localLoop;
+    if (localSourceNode) localSourceNode.loop = localLoop; // live-update the node already playing
   }
   function updateLocalPlayerVolumeUI() {
     const pct = Math.round(localVolume * 100);
     localPlayerVolumeSlider.value = String(pct);
     localPlayerVolumeValue.textContent = `${pct}%`;
-    localPlayerAudio.volume = localVolume;
+    if (localGainNode) localGainNode.gain.value = localVolume;
   }
-  // While the user is dragging the seek handle, 'timeupdate' events from
-  // actual playback must not fight the drag by snapping the handle back to
-  // the still-playing position — isScrubbingLocalPlayer suppresses just the
-  // handle/current-time half of the sync until they let go.
+  // While the user is dragging the seek handle, the progress loop must not
+  // fight the drag by snapping the handle back to the still-playing
+  // position — isScrubbingLocalPlayer suppresses just the handle/current-time
+  // half of the sync until they let go.
   let isScrubbingLocalPlayer = false;
   function updateLocalPlayerProgressUI() {
-    const duration = localPlayerAudio.duration;
+    const duration = localBuffer ? localBuffer.duration : 0;
     const hasDuration = isFinite(duration) && duration > 0;
     localPlayerSeek.max = String(hasDuration ? Math.floor(duration) : 0);
     localPlayerDuration.textContent = hasDuration ? formatMinSec(Math.floor(duration)) : "0:00";
     if (isScrubbingLocalPlayer) return;
-    const current = Math.floor(localPlayerAudio.currentTime || 0);
+    const current = Math.floor(currentLocalOffset());
     localPlayerSeek.value = String(current);
     localPlayerCurrentTime.textContent = formatMinSec(current);
   }
   function loadLocalBeat(index, opts) {
-    const wasPlaying = opts && typeof opts.autoplay === "boolean" ? opts.autoplay : !localPlayerAudio.paused;
+    const wantsPlaying = opts && typeof opts.autoplay === "boolean" ? opts.autoplay : localWantsPlaying;
     localBeatIndex = ((index % LOCAL_BEATS.length) + LOCAL_BEATS.length) % LOCAL_BEATS.length;
     const beat = LOCAL_BEATS[localBeatIndex];
     localPlayerTrack.textContent = `${beat.title} — ${beat.genre}`;
-    if (localPlayerAudio.dataset.file !== beat.file) {
-      localPlayerAudio.src = beat.file;
-      localPlayerAudio.dataset.file = beat.file;
-      updateLocalPlayerProgressUI(); // reset to 0:00/0:00 until the new file's metadata loads
+
+    if (localCurrentFile === beat.file) {
+      setLocalPlaying(wantsPlaying);
+      return;
     }
-    if (wasPlaying) {
-      localPlayerAudio.play().catch(() => {}); // blocked (e.g. no user gesture yet) — the 'play'/'pause' listeners below keep the button honest either way
-    }
+
+    stopLocalPlaybackNode();
+    localIsPlaying = false;
+    localPlayOffset = 0;
+    localBuffer = null;
+    localCurrentFile = beat.file;
+    localWantsPlaying = wantsPlaying;
+    updateLocalPlayerProgressUI(); // reset to 0:00/0:00 until the new file's metadata loads
     updateLocalPlayerPlayUI();
+
+    const token = ++localLoadToken;
+    decodeLocalBeat(beat.file).then((buffer) => {
+      if (token !== localLoadToken) return; // superseded by a newer load
+      localBuffer = buffer;
+      updateLocalPlayerProgressUI();
+      setLocalPlaying(localWantsPlaying);
+    }).catch(() => {
+      if (token !== localLoadToken) return;
+      localWantsPlaying = false;
+      updateLocalPlayerPlayUI();
+    });
   }
   localPlayerPrevBtn.addEventListener("click", () => {
     loadLocalBeat(localBeatIndex - 1);
@@ -2275,21 +2405,15 @@
     saveSettings();
   });
   localPlayerPlayBtn.addEventListener("click", () => {
-    if (!localPlayerAudio.src) loadLocalBeat(localBeatIndex, { autoplay: false });
-    if (localPlayerAudio.paused) localPlayerAudio.play().catch(() => {});
-    else localPlayerAudio.pause();
+    if (!localCurrentFile) { loadLocalBeat(localBeatIndex, { autoplay: true }); return; }
+    const showingPause = localIsPlaying || (localWantsPlaying && !localBuffer);
+    setLocalPlaying(!showingPause);
   });
-  localPlayerAudio.addEventListener("play", updateLocalPlayerPlayUI);
-  localPlayerAudio.addEventListener("pause", updateLocalPlayerPlayUI);
-  localPlayerAudio.addEventListener("ended", updateLocalPlayerPlayUI); // only reachable with loop off
-  localPlayerAudio.addEventListener("loadedmetadata", updateLocalPlayerProgressUI);
-  localPlayerAudio.addEventListener("durationchange", updateLocalPlayerProgressUI);
-  localPlayerAudio.addEventListener("timeupdate", updateLocalPlayerProgressUI);
   localPlayerSeek.addEventListener("pointerdown", () => { isScrubbingLocalPlayer = true; });
   localPlayerSeek.addEventListener("input", () => {
     const t = Number(localPlayerSeek.value);
     localPlayerCurrentTime.textContent = formatMinSec(t);
-    localPlayerAudio.currentTime = t;
+    seekLocalPlayback(t);
   });
   localPlayerSeek.addEventListener("pointerup", () => { isScrubbingLocalPlayer = false; });
   localPlayerSeek.addEventListener("change", () => { isScrubbingLocalPlayer = false; });
@@ -2303,6 +2427,17 @@
     updateLocalPlayerVolumeUI();
   });
   localPlayerVolumeSlider.addEventListener("change", saveSettings);
+  // Test-only seam: the Web Audio state (decoded buffer, live source node,
+  // playback offset) has no DOM surface for test/smoke.html to read the way
+  // it could read an <audio> element's properties, so expose just enough of
+  // it read-only for the local-beats tests to verify real behavior.
+  window.__localBeatsDebug = {
+    get loop() { return localLoop; },
+    get duration() { return localBuffer ? localBuffer.duration : 0; },
+    get isPlaying() { return localIsPlaying; },
+    get offset() { return currentLocalOffset(); },
+    refreshProgressUI: () => updateLocalPlayerProgressUI(),
+  };
 
   // Spotify's embed is cross-origin, so we can't reach into it — but when
   // its internal UI shifts focus to highlight a newly-playing track,
