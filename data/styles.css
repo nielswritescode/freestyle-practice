@@ -405,6 +405,7 @@ input[type="range"]:focus-visible{outline:2px solid var(--accent); outline-offse
 #slantMinScoreRow[hidden]{display:none;}
 #categoryRow[hidden]{display:none;}
 #posRow[hidden]{display:none;}
+#sensitiveModeRow[hidden]{display:none;}
 #collabOptionsRow[hidden]{display:none;}
 #collabPairsPerTurnRow[hidden]{display:none;}
 #csvRow[hidden]{display:none;}
@@ -960,11 +961,13 @@ a.word:hover{text-decoration:underline;}
 .word-def[hidden]{display:none;}
 span.word.word-simple,
 span.word.word-full,
-span.word.word-delete{
+span.word.word-delete,
+span.word.word-copy{
   cursor:pointer;
 }
 span.word.word-simple:hover,
-span.word.word-full:hover{
+span.word.word-full:hover,
+span.word.word-copy:hover{
   text-decoration:underline;
 }
 /* Reuses --slant (the same color the "Only" sensitive-words pill flags
