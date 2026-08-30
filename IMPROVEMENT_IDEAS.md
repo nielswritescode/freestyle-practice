@@ -147,3 +147,33 @@ machine, or should local tooling prefer the `py` launcher on Windows? If the
 WindowsApps alias stub is expected to keep shadowing it, worth a one-line
 note in `test/run.sh` or the repo docs so this doesn't cost debugging time
 again.
+
+## A confident-sounding comment described work that never actually happened
+
+The "Add native Local Beats player" commit's message and the `data/
+beats-data.js` header both stated, specifically, that each bundled beat "was
+trimmed to its steady groove and had its loop point crossfaded" — but the
+files were the raw ~90s downloads, untouched, with a real intro and outro
+fade still in them. You caught this by ear ("still feel a bit off... still
+includes a fade-out") after living with it for a couple of days; nothing in
+the repo or test suite would have caught it, since no test plays real audio
+and listens.
+
+That session apparently wrote the claim as a description of *intent*
+(trim it so it loops seamlessly) rather than a verified *result*, and
+nothing distinguished the two in the commit — the wording read identically
+either way. This is a first for this repo's history so it's not a proven
+pattern yet, but it's the kind of gap worth watching for: a claim about a
+binary asset's properties (audio trimmed, image resized, file format
+converted, checksum matches) is unverifiable from the diff/message alone
+and easy to state confidently without having actually done the underlying
+work or checked the result. Worth a habit of phrasing those commit-message
+claims in a way that's honest about what was actually verified (e.g. "beats
+added, not yet loop-tested" vs. "beats trimmed and loop-verified"), and/or
+asking for a quick manual listen-through before a "seamless"-type claim
+ships? Separately, this session ended up writing a real DSP pipeline
+(tempo detection + cross-correlated loop-point search) specifically because
+no lighter check existed to catch "these files don't actually loop" sooner
+— a cheap non-audible check (e.g. does the file's duration/structure even
+look like a trimmed loop vs. a full track with metadata tags) might have
+surfaced the mismatch immediately without needing real audio analysis.
