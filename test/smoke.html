@@ -1176,12 +1176,21 @@ test("holding 'D' reveals every definition in Simple Definition mode, then hides
   assert(defEls().every((el) => el.hidden), "releasing 'd' should hide them again");
 });
 
-test("holding 'D' does nothing outside Simple Definition mode", async (doc) => {
+test("holding 'D' reveals definitions in every Definitions display style, not just Simple Definition", async (doc) => {
+  doc.getElementById("advancedDetails").open = true;
   doc.getElementById("shortcutsToggle").click();
-  doc.dispatchEvent(new KeyboardEvent("keydown", { key: "d" }));
-  const errored = [...doc.querySelectorAll(".word-def")].some((el) => !el.hidden);
-  assert(!errored, "'d' should not reveal anything outside Simple Definition mode");
-  doc.dispatchEvent(new KeyboardEvent("keyup", { key: "d" }));
+  for (const style of ["links", "full", "delete", "copy"]) {
+    doc.querySelector(`.def-style-pill[data-def-style="${style}"]`).click();
+    const defEls = () => [...doc.querySelectorAll(".word-def")];
+    assert(defEls().length > 0, `expected at least one definition slot in ${style} mode`);
+    assert(defEls().every((el) => el.hidden), `definitions should start hidden in ${style} mode`);
+
+    doc.dispatchEvent(new KeyboardEvent("keydown", { key: "d" }));
+    assert(defEls().every((el) => !el.hidden), `holding 'd' should reveal every definition in ${style} mode`);
+
+    doc.dispatchEvent(new KeyboardEvent("keyup", { key: "d" }));
+    assert(defEls().every((el) => el.hidden), `releasing 'd' should hide them again in ${style} mode`);
+  }
 });
 
 test("keyboard shortcuts toggle persists across a reload", async (doc) => {

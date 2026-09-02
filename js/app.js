@@ -1943,7 +1943,7 @@
     const display = maskedDisplay(word, part);
     let inner;
     if (defStyle === "links") {
-      inner = `<a class="word" data-pair-part="${part}" href="${dictionaryUrl(word)}" target="_blank" rel="noopener noreferrer">${display}</a>`;
+      inner = `<a class="word" data-pair-part="${part}" data-word="${word}" href="${dictionaryUrl(word)}" target="_blank" rel="noopener noreferrer">${display}</a>`;
     } else if (defStyle === "full") {
       inner = `<span class="word word-full" data-pair-part="${part}" data-word="${word}">${display}</span>`;
     } else if (defStyle === "delete") {
@@ -2701,15 +2701,18 @@
     return SHORTCUT_TEXT_ENTRY_TAGS.has(target.tagName) || target.isContentEditable;
   }
 
-  // "Hold D" reveals every simple definition for as long as it's held, then
-  // hides again on release — but only the ones this hold actually opened,
-  // so a definition the user already had open (via a manual click) doesn't
-  // get closed out from under them when they let go.
+  // "Hold D" reveals every definition for as long as it's held, then hides
+  // them again on release — but only the ones this hold actually opened, so
+  // a definition the user already had open (via a manual click, in Simple
+  // Definition mode) doesn't get closed out from under them when they let
+  // go. It works no matter which Definitions display style is active: the
+  // lookup is WORDNET_DEFS, not whatever the current style renders, so it's
+  // a cheat-peek shortcut independent of the "Definitions" setting.
   let heldDefEls = null;
   function revealAllDefsForHold() {
-    if (defStyle !== "simple" || heldDefEls) return;
+    if (heldDefEls) return;
     heldDefEls = [];
-    pairsContainer.querySelectorAll(".word-simple").forEach((wordEl) => {
+    pairsContainer.querySelectorAll(".word-slot .word").forEach((wordEl) => {
       const defEl = wordEl.closest(".word-slot").querySelector(".word-def");
       if (defEl.hidden) {
         heldDefEls.push(defEl);
