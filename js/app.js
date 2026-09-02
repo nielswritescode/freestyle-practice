@@ -480,6 +480,11 @@
   const metronomeVolumeValue = document.getElementById("metronomeVolumeValue");
   const metronomeToggleBtn = document.getElementById("metronomeToggleBtn");
   const metronomeBeatEl = document.getElementById("metronomeBeat");
+  const showNotepadBtn = document.getElementById("showNotepadBtn");
+  const notepadCloseBtn = document.getElementById("notepadCloseBtn");
+  const notepadPanel = document.getElementById("notepadPanel");
+  const notepadTextarea = document.getElementById("notepadTextarea");
+  const notepadClearBtn = document.getElementById("notepadClearBtn");
 
   // Heuristic syllable counter (vowel-group count, with a naive silent-e
   // correction). Not phonetically exact, but the built-in pronunciation data
@@ -1755,6 +1760,70 @@
     }
   });
 
+  // Notepad — a floating text editor (see .notepad-panel in styles.css) for
+  // jotting bars/word ideas mid-practice. Its content is deliberately kept
+  // in its own localStorage key rather than folded into the settings blob:
+  // saveSettings() re-serializes the *entire* settings object on every
+  // change, which would mean re-stringifying however much text is in the
+  // notepad on every unrelated pill click too. Open/closed state, like the
+  // timer's and metronome's, is NOT persisted — a fresh visit starts closed.
+  const NOTEPAD_KEY = "rhymeflow:notepad";
+  let notepadVisible = false;
+
+  function loadNotepadText() {
+    try {
+      return localStorage.getItem(NOTEPAD_KEY) || "";
+    } catch (e) {
+      return "";
+    }
+  }
+  function saveNotepadText(text) {
+    try {
+      localStorage.setItem(NOTEPAD_KEY, text);
+    } catch (e) {
+      // storage full or unavailable (e.g. private browsing) — same as
+      // saveSettings, notes just won't persist
+    }
+  }
+
+  function updateShowNotepadUI() {
+    notepadPanel.hidden = !notepadVisible;
+    showNotepadBtn.textContent = notepadVisible ? "Hide notepad" : "Show notepad";
+  }
+  showNotepadBtn.addEventListener("click", () => {
+    notepadVisible = !notepadVisible;
+    updateShowNotepadUI();
+    if (notepadVisible) notepadTextarea.focus();
+  });
+  // Same close-button delegation as timerCloseBtn/metronomeCloseBtn above.
+  notepadCloseBtn.addEventListener("click", () => showNotepadBtn.click());
+
+  notepadTextarea.addEventListener("input", () => saveNotepadText(notepadTextarea.value));
+
+  // Armed by one click, fired by a second within 4s — same no-native-
+  // confirm() reasoning as resetSettingsBtn below: losing a chunk of
+  // written notes to a misclick is exactly the kind of thing worth a beat
+  // of friction.
+  let notepadClearArmed = false;
+  let notepadClearArmTimeout = null;
+  notepadClearBtn.addEventListener("click", () => {
+    if (!notepadClearArmed) {
+      notepadClearArmed = true;
+      notepadClearBtn.textContent = "Click again to clear";
+      notepadClearArmTimeout = setTimeout(() => {
+        notepadClearArmed = false;
+        notepadClearBtn.textContent = "Clear";
+      }, 4000);
+      return;
+    }
+    clearTimeout(notepadClearArmTimeout);
+    notepadClearArmed = false;
+    notepadClearBtn.textContent = "Clear";
+    notepadTextarea.value = "";
+    saveNotepadText("");
+    notepadTextarea.focus();
+  });
+
   function parseCsv(text) {
     return text
       .split(/[,\n\r]+/)
@@ -2381,6 +2450,14 @@
   function updateLocalPlayerPlayUI() {
     const showPause = localIsPlaying || (localWantsPlaying && !localBuffer);
     localPlayerPlayBtn.textContent = showPause ? "Pause" : "Play";
+    // Keeps OS-level media controls (lock screen, hardware/headset keys,
+    // Chrome's media notification) honest about play/pause state — without
+    // this they default to "none" and the play/pause key does nothing,
+    // since this player is raw Web Audio, not an <audio> element the
+    // browser can infer state from automatically.
+    if ("mediaSession" in navigator) {
+      navigator.mediaSession.playbackState = showPause ? "playing" : "paused";
+    }
   }
   function updateLocalPlayerLoopUI() {
     localPlayerLoopBtn.classList.toggle("active", localLoop);
@@ -2406,12 +2483,26 @@
     const current = Math.floor(currentLocalOffset());
     localPlayerSeek.value = String(current);
     localPlayerCurrentTime.textContent = formatMinSec(current);
+    // Lets OS media controls show/scrub a progress bar for this track, same
+    // motivation as the playbackState line in updateLocalPlayerPlayUI.
+    if ("mediaSession" in navigator && hasDuration) {
+      try {
+        navigator.mediaSession.setPositionState({ duration, playbackRate: 1, position: Math.min(current, duration) });
+      } catch (e) {}
+    }
   }
   function loadLocalBeat(index, opts) {
     const wantsPlaying = opts && typeof opts.autoplay === "boolean" ? opts.autoplay : localWantsPlaying;
     localBeatIndex = ((index % LOCAL_BEATS.length) + LOCAL_BEATS.length) % LOCAL_BEATS.length;
     const beat = LOCAL_BEATS[localBeatIndex];
     localPlayerTrack.textContent = `${beat.title} — ${beat.genre}`;
+    if ("mediaSession" in navigator) {
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title: beat.title,
+        artist: beat.genre,
+        album: "RhymeJoy — Local Beats",
+      });
+    }
 
     if (localCurrentFile === beat.file) {
       setLocalPlaying(wantsPlaying);
@@ -2439,18 +2530,31 @@
       updateLocalPlayerPlayUI();
     });
   }
-  localPlayerPrevBtn.addEventListener("click", () => {
+  // Named (rather than inlined into the click listeners) so the Media
+  // Session action handlers below can drive the exact same code paths as
+  // the on-screen buttons — hardware/headset keys and lock-screen controls
+  // should behave identically to clicking Prev/Next/Play.
+  function localPlayerGoPrev() {
     loadLocalBeat(localBeatIndex - 1);
     saveSettings();
-  });
-  localPlayerNextBtn.addEventListener("click", () => {
+  }
+  function localPlayerGoNext() {
     loadLocalBeat(localBeatIndex + 1);
     saveSettings();
-  });
-  localPlayerPlayBtn.addEventListener("click", () => {
+  }
+  function localPlayerStartOrResume() {
     if (!localCurrentFile) { loadLocalBeat(localBeatIndex, { autoplay: true }); return; }
+    setLocalPlaying(true);
+  }
+  localPlayerPrevBtn.addEventListener("click", localPlayerGoPrev);
+  localPlayerNextBtn.addEventListener("click", localPlayerGoNext);
+  localPlayerPlayBtn.addEventListener("click", () => {
     const showingPause = localIsPlaying || (localWantsPlaying && !localBuffer);
-    setLocalPlaying(!showingPause);
+    if (showingPause) {
+      setLocalPlaying(false);
+    } else {
+      localPlayerStartOrResume();
+    }
   });
   localPlayerSeek.addEventListener("pointerdown", () => { isScrubbingLocalPlayer = true; });
   localPlayerSeek.addEventListener("input", () => {
@@ -2470,6 +2574,30 @@
     updateLocalPlayerVolumeUI();
   });
   localPlayerVolumeSlider.addEventListener("change", saveSettings);
+
+  // OS-level media controls (lock screen, hardware/headset play-pause-
+  // prev-next keys, Chrome's media notification) only route to a page that
+  // registers Media Session action handlers — without this, those buttons
+  // do nothing at all here since the local player is raw Web Audio, not an
+  // <audio> element the browser would otherwise infer transport controls
+  // from. Spotify/YouTube already get this for free from their own iframe's
+  // native player, which is why only the local player needs it wired up.
+  // Safari throws on setActionHandler for actions it doesn't support (e.g.
+  // "seekto"), so each registration is wrapped individually.
+  if ("mediaSession" in navigator) {
+    const setMediaHandler = (action, handler) => {
+      try { navigator.mediaSession.setActionHandler(action, handler); } catch (e) {}
+    };
+    setMediaHandler("play", localPlayerStartOrResume);
+    setMediaHandler("pause", () => setLocalPlaying(false));
+    setMediaHandler("stop", () => setLocalPlaying(false));
+    setMediaHandler("previoustrack", localPlayerGoPrev);
+    setMediaHandler("nexttrack", localPlayerGoNext);
+    setMediaHandler("seekto", (details) => {
+      if (typeof details.seekTime === "number") seekLocalPlayback(details.seekTime);
+    });
+  }
+
   // Test-only seam: the Web Audio state (decoded buffer, live source node,
   // playback offset) has no DOM surface for test/smoke.html to read the way
   // it could read an <audio> element's properties, so expose just enough of
@@ -2594,6 +2722,8 @@
     } else if (e.key === "d" || e.key === "D") {
       e.preventDefault();
       revealAllDefsForHold();
+    } else if (e.key === "n" || e.key === "N") {
+      showNotepadBtn.click();
     }
   });
   document.addEventListener("keyup", (e) => {
@@ -2619,6 +2749,8 @@
   updateShowMetronomeBtnUI();
   updateMetronomeBpmUI();
   updateMetronomeVolumeUI();
+  notepadTextarea.value = loadNotepadText();
+  updateShowNotepadUI();
   playlistToggle.checked = playlistVisible;
   playlistSourceSelect.value = playlistSource;
   updateLocalPlayerLoopUI();

@@ -147,7 +147,7 @@
               <span>Enable keyboard shortcuts</span>
             </label>
           </div>
-          <div class="status-msg">C toggles Collab mode &middot; Space or Enter refreshes rhymes &middot; holding D reveals all definitions (Simple Definition mode)</div>
+          <div class="status-msg">C toggles Collab mode &middot; N toggles the Notepad &middot; Space or Enter refreshes rhymes &middot; holding D reveals all definitions (Simple Definition mode)</div>
         </div>
         <div class="advanced-section">
           <div class="advanced-section-title">Slant rhymes</div>
@@ -212,6 +212,10 @@
             <div class="label">Metronome volume</div>
             <input type="range" id="metronomeVolumeSlider" min="0" max="100" step="5" value="70" aria-label="Metronome volume">
             <span class="range-value" id="metronomeVolumeValue">70%</span>
+          </div>
+          <div class="row" style="margin-top:14px;">
+            <div class="label">Notepad</div>
+            <button type="button" class="btn-ghost" id="showNotepadBtn">Show notepad</button>
           </div>
         </div>
         <div class="advanced-section">
@@ -354,6 +358,16 @@
     <div class="metronome-bpm-value" id="metronomeBpmValue">120 BPM</div>
     <input type="range" id="metronomeBpmSlider" min="40" max="240" step="1" value="120" aria-label="Beats per minute">
     <button type="button" class="btn-main" id="metronomeToggleBtn">Start</button>
+  </div>
+
+  <div class="panel notepad-panel" id="notepadPanel" hidden>
+    <button type="button" class="panel-close-btn" id="notepadCloseBtn" aria-label="Hide notepad">✕</button>
+    <div class="notepad-title">Notepad</div>
+    <textarea class="notepad-textarea" id="notepadTextarea" placeholder="Jot down bars, word ideas, practice notes…" spellcheck="false"></textarea>
+    <div class="row notepad-footer">
+      <button type="button" class="btn-ghost" id="notepadClearBtn">Clear</button>
+      <div class="status-msg">Autosaves to this browser only.</div>
+    </div>
   </div>
 
   <div class="pairs" id="pairsContainer"></div>

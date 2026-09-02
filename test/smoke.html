@@ -122,6 +122,7 @@ test("broad click sweep across every major control throws no errors", async (doc
     "#autoRefreshToggle", "#downloadDeletedBtn", "#clearDeletedBtn", "#showTimerBtn",
     "#hideUiBtn", "#localPlayerPrevBtn", "#localPlayerPlayBtn", "#localPlayerNextBtn",
     "#localPlayerLoopBtn", "#collabToggle", "#shortcutsToggle",
+    "#showNotepadBtn", "#notepadClearBtn", "#notepadCloseBtn",
   ];
   let clicked = 0;
   for (const sel of selectors) {
@@ -1192,6 +1193,116 @@ test("keyboard shortcuts toggle persists across a reload", async (doc) => {
   } finally {
     fresh.iframe.remove();
   }
+});
+
+// ---- notepad ----
+
+test("Show notepad reveals the panel; the close button hides it again", async (doc) => {
+  doc.getElementById("advancedDetails").open = true;
+  const panel = doc.getElementById("notepadPanel");
+  const showBtn = doc.getElementById("showNotepadBtn");
+  assertEqual(displayOf(panel), "none", "notepad should start hidden");
+  showBtn.click();
+  assertEqual(displayOf(panel), "flex", "notepad should show once opened");
+  assertEqual(showBtn.textContent, "Hide notepad", "show button should relabel once open");
+  doc.getElementById("notepadCloseBtn").click();
+  assertEqual(displayOf(panel), "none", "close button should hide the notepad again");
+  assertEqual(showBtn.textContent, "Show notepad", "show button should relabel back once closed");
+});
+
+test("'N' toggles the notepad once shortcuts are enabled, and is ignored while typing in a field", async (doc) => {
+  doc.getElementById("advancedDetails").open = true;
+  doc.getElementById("shortcutsToggle").click();
+  const panel = doc.getElementById("notepadPanel");
+  assertEqual(displayOf(panel), "none", "notepad should start hidden");
+  doc.dispatchEvent(new KeyboardEvent("keydown", { key: "n" }));
+  assertEqual(displayOf(panel), "flex", "'n' should open the notepad");
+  doc.dispatchEvent(new KeyboardEvent("keydown", { key: "n" }));
+  assertEqual(displayOf(panel), "none", "'n' should close the notepad again");
+
+  const input = doc.getElementById("customCount");
+  input.dispatchEvent(new KeyboardEvent("keydown", { key: "n", bubbles: true }));
+  assertEqual(displayOf(panel), "none", "'n' typed into an unrelated field should not open the notepad");
+});
+
+test("typing into the notepad's own textarea (including the letter 'n') never toggles it via the shortcut", async (doc) => {
+  doc.getElementById("shortcutsToggle").click();
+  doc.getElementById("showNotepadBtn").click();
+  const panel = doc.getElementById("notepadPanel");
+  const textarea = doc.getElementById("notepadTextarea");
+  assertEqual(displayOf(panel), "flex", "notepad should be open");
+  textarea.dispatchEvent(new KeyboardEvent("keydown", { key: "n", bubbles: true }));
+  assertEqual(displayOf(panel), "flex", "typing 'n' while composing a note should not close the notepad");
+});
+
+test("notepad content autosaves to localStorage and survives a reload", async (doc, win) => {
+  doc.getElementById("showNotepadBtn").click();
+  const textarea = doc.getElementById("notepadTextarea");
+  textarea.value = "16 bars for the hook";
+  textarea.dispatchEvent(new Event("input", { bubbles: true }));
+  assertEqual(win.localStorage.getItem("rhymeflow:notepad"), "16 bars for the hook", "notes should autosave under their own key");
+
+  const fresh = await loadFreshApp();
+  try {
+    assertEqual(
+      fresh.doc.getElementById("notepadTextarea").value,
+      "16 bars for the hook",
+      "notes should persist across a reload"
+    );
+    assertEqual(displayOf(fresh.doc.getElementById("notepadPanel")), "none", "notepad open/closed state should NOT persist — a fresh visit starts closed");
+  } finally {
+    fresh.iframe.remove();
+  }
+});
+
+test("Clear requires a confirming second click before it erases notes", async (doc, win) => {
+  doc.getElementById("showNotepadBtn").click();
+  const textarea = doc.getElementById("notepadTextarea");
+  textarea.value = "don't lose this bar";
+  textarea.dispatchEvent(new Event("input", { bubbles: true }));
+
+  const clearBtn = doc.getElementById("notepadClearBtn");
+  clearBtn.click();
+  assertEqual(textarea.value, "don't lose this bar", "a single click should only arm Clear, not erase anything");
+  assertEqual(clearBtn.textContent, "Click again to clear", "Clear button should relabel once armed");
+
+  clearBtn.click();
+  assertEqual(textarea.value, "", "a second click should erase the textarea");
+  assertEqual(win.localStorage.getItem("rhymeflow:notepad"), "", "a second click should erase the persisted notes too");
+  assertEqual(clearBtn.textContent, "Clear", "Clear button should relabel back after firing");
+});
+
+// ---- local player: Media Session wiring ----
+// Hardware/lock-screen media keys only route to a page that has registered
+// Media Session state — see the "OS-level media controls" comment in
+// js/app.js. Headless Chrome supports the real API, so these check the
+// actual navigator.mediaSession state js/app.js sets, rather than mocking it.
+
+test("loading a local beat publishes Media Session metadata for it", async (doc, win) => {
+  const select = doc.getElementById("playlistSourceSelect");
+  select.value = "local";
+  select.dispatchEvent(new Event("change", { bubbles: true }));
+
+  const track = doc.getElementById("localPlayerTrack");
+  assert(win.navigator.mediaSession.metadata, "metadata should be set once a beat is loaded");
+  assert(track.textContent.startsWith(win.navigator.mediaSession.metadata.title), "metadata title should match the loaded beat");
+
+  const firstTitle = win.navigator.mediaSession.metadata.title;
+  doc.getElementById("localPlayerNextBtn").click();
+  assert(win.navigator.mediaSession.metadata.title !== firstTitle, "switching tracks should update the published metadata");
+});
+
+test("play/pause updates navigator.mediaSession.playbackState to match", async (doc, win) => {
+  const select = doc.getElementById("playlistSourceSelect");
+  select.value = "local";
+  select.dispatchEvent(new Event("change", { bubbles: true }));
+
+  assertEqual(win.navigator.mediaSession.playbackState, "paused", "should start paused");
+  doc.getElementById("localPlayerPlayBtn").click();
+  await waitFor(() => win.__localBeatsDebug.isPlaying, 5000);
+  assertEqual(win.navigator.mediaSession.playbackState, "playing", "should report playing once playback starts");
+  doc.getElementById("localPlayerPlayBtn").click();
+  assertEqual(win.navigator.mediaSession.playbackState, "paused", "should report paused once playback stops");
 });
 
 // ---- runner ----
