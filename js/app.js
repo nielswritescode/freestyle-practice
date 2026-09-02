@@ -485,6 +485,7 @@
   const notepadPanel = document.getElementById("notepadPanel");
   const notepadTextarea = document.getElementById("notepadTextarea");
   const notepadClearBtn = document.getElementById("notepadClearBtn");
+  const notepadDownloadBtn = document.getElementById("notepadDownloadBtn");
 
   // Heuristic syllable counter (vowel-group count, with a naive silent-e
   // correction). Not phonetically exact, but the built-in pronunciation data
@@ -1799,6 +1800,19 @@
   notepadCloseBtn.addEventListener("click", () => showNotepadBtn.click());
 
   notepadTextarea.addEventListener("input", () => saveNotepadText(notepadTextarea.value));
+
+  notepadDownloadBtn.addEventListener("click", () => {
+    if (!notepadTextarea.value) return;
+    const blob = new Blob([notepadTextarea.value], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `notepad-${new Date().toISOString().slice(0, 10)}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  });
 
   // Armed by one click, fired by a second within 4s — same no-native-
   // confirm() reasoning as resetSettingsBtn below: losing a chunk of
