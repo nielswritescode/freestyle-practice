@@ -1807,7 +1807,7 @@
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `notepad-${new Date().toISOString().slice(0, 10)}.txt`;
+    a.download = `MIRbeat-notepad-${new Date().toISOString().slice(0, 10)}.txt`;
     document.body.appendChild(a);
     a.click();
     a.remove();
