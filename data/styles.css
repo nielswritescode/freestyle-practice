@@ -737,9 +737,11 @@ a.btn-ghost{text-decoration:none; display:inline-block;}
   font-variant-numeric:tabular-nums;
 }
 #metronomeBpmSlider{width:min(320px, 80vw);}
-/* Pulses on every beat via tickMetronome() (js/app.js) — a plain color/scale
-   flip rather than a keyframe animation, since it needs to reset and
-   re-trigger every beat at whatever tempo the BPM slider is set to. */
+/* Pulses on every beat via pulseMetronomeBeat() (js/app.js) — a plain
+   color/scale flip rather than a keyframe animation, since it needs to
+   reset and re-trigger every beat at whatever tempo the BPM slider is set
+   to. .pulse-emphasis rides along on emphasis beats (see the emphasis
+   pills) so the downbeat is visibly, not just audibly, distinct. */
 .metronome-beat{
   width:16px;
   height:16px;
@@ -751,6 +753,10 @@ a.btn-ghost{text-decoration:none; display:inline-block;}
 .metronome-beat.pulse{
   background:var(--near);
   transform:scale(1.3);
+}
+.metronome-beat.pulse.pulse-emphasis{
+  background:var(--accent);
+  transform:scale(1.6);
 }
 
 /* Notepad — a floating card (not a full-width top/bottom bar like the timer

@@ -389,7 +389,13 @@
       <div class="metronome-beat" id="metronomeBeat" aria-hidden="true"></div>
       <div class="metronome-bpm-value" id="metronomeBpmValue">120 BPM</div>
       <input type="range" id="metronomeBpmSlider" min="40" max="240" step="1" value="120" aria-label="Beats per minute">
-      <button type="button" class="btn-main" id="metronomeToggleBtn">Start</button>
+      <div class="row" style="justify-content:center;">
+        <button type="button" class="btn-main" id="metronomeToggleBtn">Start</button>
+        <button type="button" class="pill metronome-emphasis-pill active" data-emphasis="0">No emphasis</button>
+        <button type="button" class="pill metronome-emphasis-pill" data-emphasis="4">4</button>
+        <button type="button" class="pill metronome-emphasis-pill" data-emphasis="8">8</button>
+        <button type="button" class="pill metronome-emphasis-pill" data-emphasis="16">16</button>
+      </div>
       <div class="row">
         <div class="label">Volume</div>
         <input type="range" id="metronomeVolumeSlider" min="0" max="100" step="5" value="70" aria-label="Metronome volume">

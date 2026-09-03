@@ -156,6 +156,10 @@
 
   let metronomeBpm = 120; // persisted, like timerVolume — a preference, not session state
   let metronomeVolume = 0.7; // 0..1, persisted the same way as timerVolume
+  // 0 = no emphasis, otherwise every Nth beat (1st, N+1th, ...) plays louder
+  // and at a different pitch — persisted the same way as metronomeBpm.
+  let metronomeEmphasisEvery = 0;
+  const METRONOME_EMPHASIS_OPTIONS = [0, 4, 8, 16];
 
   // Collab mode: x people rhyme together sequentially, each pair-card
   // colored by whose turn it is. collabEnabled only seeds the checkbox at
@@ -281,6 +285,9 @@
     if (typeof stored.metronomeVolume === "number" && stored.metronomeVolume >= 0 && stored.metronomeVolume <= 1) {
       metronomeVolume = stored.metronomeVolume;
     }
+    if (METRONOME_EMPHASIS_OPTIONS.includes(stored.metronomeEmphasisEvery)) {
+      metronomeEmphasisEvery = stored.metronomeEmphasisEvery;
+    }
     if (typeof stored.collabEnabled === "boolean") collabEnabled = stored.collabEnabled;
     if (typeof stored.collabCount === "number" && stored.collabCount >= COLLAB_MIN && stored.collabCount <= COLLAB_MAX) {
       collabCount = stored.collabCount;
@@ -331,6 +338,7 @@
         timerLoop,
         metronomeBpm,
         metronomeVolume,
+        metronomeEmphasisEvery,
         collabEnabled: collabToggle.checked,
         collabCount,
         collabPairsPerTurn,
@@ -478,6 +486,7 @@
   const metronomeVolumeValue = document.getElementById("metronomeVolumeValue");
   const metronomeToggleBtn = document.getElementById("metronomeToggleBtn");
   const metronomeBeatEl = document.getElementById("metronomeBeat");
+  const metronomeEmphasisPills = document.querySelectorAll(".metronome-emphasis-pill");
   const showNotepadBtn = document.getElementById("showNotepadBtn");
   const notepadCloseBtn = document.getElementById("notepadCloseBtn");
   const notepadPanel = document.getElementById("notepadPanel");
@@ -1652,7 +1661,6 @@
   // currently playing is deliberately NOT persisted, same reasoning as
   // timerRunningNow — a fresh visit shouldn't resume mid-tick.
   let metronomeRunning = false;
-  let metronomeIntervalId = null;
 
   function updateMetronomeBpmUI() {
     metronomeBpmSlider.value = String(metronomeBpm);
@@ -1670,24 +1678,27 @@
   });
   metronomeVolumeSlider.addEventListener("change", saveSettings);
 
-  // A short, plain click — reuses sharedAudioCtx (see primeTimerAudio/
-  // playTimerSound above) rather than spinning up a second AudioContext.
-  function playMetronomeTick() {
+  // A short click at an explicit audio-clock time (not "now") — see
+  // metronomeScheduler below for why that matters. Reuses sharedAudioCtx
+  // (see primeTimerAudio/playTimerSound above) rather than spinning up a
+  // second AudioContext. Emphasis beats (first beat of every N, see the
+  // emphasis pills below) are louder and a different pitch so they're
+  // audibly distinct, not just louder.
+  function playMetronomeTickAt(time, isEmphasis) {
     try {
       const ctx = sharedAudioCtx;
       if (!ctx) return;
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
       osc.type = "square";
-      osc.frequency.value = 1000;
-      const t0 = ctx.currentTime;
-      const peak = 0.25 * metronomeVolume;
-      gain.gain.setValueAtTime(0, t0);
-      gain.gain.linearRampToValueAtTime(peak, t0 + 0.002);
-      gain.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.05);
+      osc.frequency.value = isEmphasis ? 1500 : 1000;
+      const peak = 0.25 * metronomeVolume * (isEmphasis ? 1.5 : 1);
+      gain.gain.setValueAtTime(0, time);
+      gain.gain.linearRampToValueAtTime(peak, time + 0.002);
+      gain.gain.exponentialRampToValueAtTime(0.0001, time + 0.05);
       osc.connect(gain).connect(ctx.destination);
-      osc.start(t0);
-      osc.stop(t0 + 0.06);
+      osc.start(time);
+      osc.stop(time + 0.06);
     } catch (e) {
       // Web Audio unavailable/blocked — the beat dot still pulses visually
     }
@@ -1695,21 +1706,46 @@
 
   // Remove/reflow/add so the CSS transition actually retriggers on every
   // beat instead of only firing once (same dance as flashPracticeWordart).
-  function pulseMetronomeBeat() {
+  function pulseMetronomeBeat(isEmphasis) {
     metronomeBeatEl.classList.remove("pulse");
     void metronomeBeatEl.offsetWidth;
     metronomeBeatEl.classList.add("pulse");
+    metronomeBeatEl.classList.toggle("pulse-emphasis", !!isEmphasis);
   }
 
-  function tickMetronome() {
-    playMetronomeTick();
-    pulseMetronomeBeat();
+  // Beats are scheduled on the Web Audio clock (ctx.currentTime), not fired
+  // straight from setInterval. setInterval only guarantees "no earlier
+  // than" — under any main-thread jank (layout, GC, the practice canvas
+  // repainting) its callback can land late, and the old code used that late
+  // timestamp as the tick's own start time. That doesn't just shift the
+  // beat, it can also land two ticks close enough together that their
+  // square waves overlap out of phase and partially cancel, so one beat
+  // comes out noticeably softer than the rest. Scheduling ahead of time off
+  // the audio clock (the standard "lookahead scheduler" pattern) keeps
+  // every beat's start time exact regardless of when the JS timer fires.
+  const METRONOME_LOOKAHEAD = 0.1; // seconds to schedule ahead of audio-now
+  const METRONOME_SCHEDULER_PERIOD_MS = 25; // how often we check the lookahead window
+  let nextMetronomeTickTime = 0; // ctx.currentTime seconds
+  let metronomeBeatIndex = 0; // counts up within the current emphasis group
+  let metronomeSchedulerId = null;
+
+  function metronomeScheduler() {
+    const ctx = sharedAudioCtx;
+    if (!ctx) return;
+    while (nextMetronomeTickTime < ctx.currentTime + METRONOME_LOOKAHEAD) {
+      const time = nextMetronomeTickTime;
+      const isEmphasis = metronomeEmphasisEvery > 0 && metronomeBeatIndex % metronomeEmphasisEvery === 0;
+      playMetronomeTickAt(time, isEmphasis);
+      setTimeout(() => pulseMetronomeBeat(isEmphasis), Math.max(0, (time - ctx.currentTime) * 1000));
+      metronomeBeatIndex++;
+      nextMetronomeTickTime += 60 / metronomeBpm; // reads live BPM, so slider drags apply to the next beat
+    }
   }
 
   function stopMetronome() {
-    if (metronomeIntervalId) {
-      clearInterval(metronomeIntervalId);
-      metronomeIntervalId = null;
+    if (metronomeSchedulerId) {
+      clearInterval(metronomeSchedulerId);
+      metronomeSchedulerId = null;
     }
     metronomeRunning = false;
     metronomeToggleBtn.textContent = "Start";
@@ -1719,21 +1755,34 @@
     primeTimerAudio();
     metronomeRunning = true;
     metronomeToggleBtn.textContent = "Stop";
-    tickMetronome();
-    metronomeIntervalId = setInterval(tickMetronome, 60000 / metronomeBpm);
+    metronomeBeatIndex = 0;
+    nextMetronomeTickTime = sharedAudioCtx ? sharedAudioCtx.currentTime : 0;
+    metronomeScheduler(); // schedules (and plays) beat 1 right away
+    metronomeSchedulerId = setInterval(metronomeScheduler, METRONOME_SCHEDULER_PERIOD_MS);
   }
 
   metronomeBpmSlider.addEventListener("input", () => {
     metronomeBpm = clamp(parseInt(metronomeBpmSlider.value, 10), 40, 240);
     updateMetronomeBpmUI();
-    // Re-time the running interval immediately so dragging the slider while
-    // playing is heard right away, not just on the next Start.
-    if (metronomeRunning) {
-      clearInterval(metronomeIntervalId);
-      metronomeIntervalId = setInterval(tickMetronome, 60000 / metronomeBpm);
-    }
+    // No re-timing needed: metronomeScheduler reads metronomeBpm live when
+    // it computes each next beat, so a drag while playing takes effect on
+    // the next not-yet-scheduled beat (within METRONOME_LOOKAHEAD seconds).
   });
   metronomeBpmSlider.addEventListener("change", saveSettings);
+
+  function updateMetronomeEmphasisUI() {
+    metronomeEmphasisPills.forEach((btn) => {
+      btn.classList.toggle("active", Number(btn.dataset.emphasis) === metronomeEmphasisEvery);
+    });
+  }
+  metronomeEmphasisPills.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      metronomeEmphasisEvery = Number(btn.dataset.emphasis);
+      updateMetronomeEmphasisUI();
+      metronomeBeatIndex = 0; // realign so the new grouping's downbeat lands on the next beat
+      saveSettings();
+    });
+  });
 
   metronomeToggleBtn.addEventListener("click", () => {
     if (metronomeRunning) {
@@ -2749,6 +2798,7 @@
   updateTimerVolumeUI();
   updateMetronomeBpmUI();
   updateMetronomeVolumeUI();
+  updateMetronomeEmphasisUI();
   notepadTextarea.value = loadNotepadText();
   updateShowNotepadUI();
   playlistToggle.checked = playlistVisible;
