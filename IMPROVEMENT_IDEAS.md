@@ -180,6 +180,44 @@ WindowsApps alias stub is expected to keep shadowing it, worth a one-line
 note in `test/run.sh` or the repo docs so this doesn't cost debugging time
 again.
 
+## `test/run.sh`'s bash `kill` doesn't reliably clean up Chrome on Windows, so orphans accumulate silently
+
+While verifying the metronome-as-music-player change, a `Get-CimInstance
+Win32_Process` sweep on this Windows machine turned up **40** live
+`chrome.exe` processes. Only one process tree (14 processes) was the real,
+interactive browser — the other 26, across three separate abandoned
+`--headless=new ... test/smoke.html` invocations, were leftovers from past
+sessions going back to 8/30 (four days earlier), each a full multi-process
+Chrome instance (GPU/network/storage/renderer/audio subprocesses) that never
+exited. `python.exe` (the smoke server) had also leaked at least one extra
+listener bound to a stale port.
+
+Cause, best guess: `test/run.sh`'s `cleanup()` trap does `kill
+"$CHROME_PID"`/`kill "$SERVER_PID"` against the PID bash's `&`
+backgrounding captured — but on this machine that's launched through the
+`~/bin/google-chrome`/`~/bin/python3` `exec` shims (see "python3 isn't
+always Python on Windows" above), and/or the run gets interrupted
+(Ctrl-C, tool timeout, crash) before the trap fires at all. Either way
+`kill` on that one PID doesn't reach the actual `chrome.exe` process tree,
+so the browser (and all its child processes) just keeps running,
+invisible, consuming memory indefinitely. This session confirmed a fix:
+launching via PowerShell's `Start-Process -PassThru` (a real Windows PID,
+not a bash job number) and cleaning up with `taskkill /F /T /PID
+<pid>` (the `/T` kills the whole tree) worked reliably every time, while
+plain bash `kill $CHROME_PID` had already left orphans after just two or
+three earlier attempts in this same session.
+
+Worth it, if this repo's test tooling is going to keep getting run from a
+Windows machine: have `test/run.sh` (or a Windows-specific variant) kill by
+process tree — `taskkill /F /T` — instead of a bare `kill`, and/or have the
+trap run defensively even on abnormal exit (it already uses `trap ... EXIT`,
+which should cover Ctrl-C/errors — worth double-checking it actually fires
+when the *outer* tool invoking this script is the one that gets killed/times
+out, since that's what orphaned these). Separately: a cheap standing
+habit — sweep for stray `chrome.exe`/`python.exe` before *and* after a
+manual (non-`run.sh`) headless test invocation on this machine, since nothing
+currently surfaces the leak until someone happens to go looking.
+
 ## A confident-sounding comment described work that never actually happened
 
 The "Add native Local Beats player" commit's message and the `data/

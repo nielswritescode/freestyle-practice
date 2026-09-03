@@ -208,7 +208,7 @@
     }
     if (typeof stored.customCountActive === "boolean") customCountActive = stored.customCountActive;
     if (typeof stored.playlistVisible === "boolean") playlistVisible = stored.playlistVisible;
-    if (["spotify", "youtube", "local"].includes(stored.playlistSource)) playlistSource = stored.playlistSource;
+    if (["spotify", "youtube", "local", "metronome"].includes(stored.playlistSource)) playlistSource = stored.playlistSource;
     if (
       typeof stored.localBeatIndex === "number" &&
       Number.isInteger(stored.localBeatIndex) &&
@@ -471,9 +471,7 @@
   const timerRunningEl = document.getElementById("timerRunning");
   const timerRunningSequenceEl = document.getElementById("timerRunningSequence");
   const timerCountdownEl = document.getElementById("timerCountdown");
-  const showMetronomeBtn = document.getElementById("showMetronomeBtn");
-  const metronomeCloseBtn = document.getElementById("metronomeCloseBtn");
-  const metronomePanel = document.getElementById("metronomePanel");
+  const metronomePlayer = document.getElementById("metronomePlayer");
   const metronomeBpmSlider = document.getElementById("metronomeBpmSlider");
   const metronomeBpmValue = document.getElementById("metronomeBpmValue");
   const metronomeVolumeSlider = document.getElementById("metronomeVolumeSlider");
@@ -1647,30 +1645,14 @@
   // The countdown number is itself the stop control — no separate button.
   timerCountdownEl.addEventListener("click", returnToTimerPicker);
 
-  // Practice metronome — a fixed top-bar overlay (see the CSS comment on
-  // .metronome-panel), independent of the timer so both can run together.
-  // metronomeBpm is declared up near timerVolume and persisted the same
-  // way; whether it's currently playing is deliberately NOT persisted, same
-  // reasoning as timerRunningNow — a fresh visit shouldn't resume mid-tick.
-  let metronomeVisible = false;
+  // Practice metronome — one of the music-player sources (see
+  // updatePlaylistSource above), shown/hidden by the same source select as
+  // Spotify/YouTube/Local Beats rather than its own toggle. metronomeBpm is
+  // declared up near timerVolume and persisted the same way; whether it's
+  // currently playing is deliberately NOT persisted, same reasoning as
+  // timerRunningNow — a fresh visit shouldn't resume mid-tick.
   let metronomeRunning = false;
   let metronomeIntervalId = null;
-
-  function updateShowMetronomeBtnUI() {
-    metronomePanel.hidden = !metronomeVisible;
-    showMetronomeBtn.textContent = metronomeVisible ? "Hide metronome" : "Show metronome";
-    document.body.classList.toggle("metronome-open", metronomeVisible);
-  }
-  showMetronomeBtn.addEventListener("click", () => {
-    primeTimerAudio(); // shared with the timer — see primeTimerAudio's comment on why this needs a real click
-    metronomeVisible = !metronomeVisible;
-    if (!metronomeVisible && metronomeRunning) {
-      stopMetronome();
-    }
-    updateShowMetronomeBtnUI();
-  });
-  // Same delegation reasoning as timerCloseBtn above.
-  metronomeCloseBtn.addEventListener("click", () => showMetronomeBtn.click());
 
   function updateMetronomeBpmUI() {
     metronomeBpmSlider.value = String(metronomeBpm);
@@ -1796,7 +1778,7 @@
     updateShowNotepadUI();
     if (notepadVisible) notepadTextarea.focus();
   });
-  // Same close-button delegation as timerCloseBtn/metronomeCloseBtn above.
+  // Same close-button delegation as timerCloseBtn above.
   notepadCloseBtn.addEventListener("click", () => showNotepadBtn.click());
 
   notepadTextarea.addEventListener("input", () => saveNotepadText(notepadTextarea.value));
@@ -2329,11 +2311,13 @@
     spotifyEmbed.hidden = source !== "spotify";
     youtubeEmbed.hidden = source !== "youtube";
     localPlayer.hidden = source !== "local";
+    metronomePlayer.hidden = source !== "metronome";
     if (source === "local") {
       loadLocalBeat(localBeatIndex, { autoplay: false }); // never auto-play on a bare source switch — browsers block it without a gesture anyway, and it'd be a surprise if they didn't
     } else if (localIsPlaying || localWantsPlaying) {
       setLocalPlaying(false);
     }
+    if (source !== "metronome" && metronomeRunning) stopMetronome();
   }
   playlistToggle.addEventListener("change", () => {
     updatePlaylistVisibility();
@@ -2763,7 +2747,6 @@
   updateTimerDurationUnitUI();
   updateTimerSoundUI();
   updateTimerVolumeUI();
-  updateShowMetronomeBtnUI();
   updateMetronomeBpmUI();
   updateMetronomeVolumeUI();
   notepadTextarea.value = loadNotepadText();

@@ -110,6 +110,7 @@
             <option value="spotify">Spotify</option>
             <option value="youtube">YouTube</option>
             <option value="local">Local Beats</option>
+            <option value="metronome">Metronome</option>
           </select>
         </div>
         <div class="row">
@@ -203,15 +204,6 @@
               <input type="number" class="timer-duration-input" data-duration-index="4" min="1" max="180" value="25">
               <input type="number" class="timer-duration-input" data-duration-index="5" min="1" max="180" value="30">
             </div>
-          </div>
-          <div class="row" style="margin-top:14px;">
-            <div class="label">Practice metronome</div>
-            <button type="button" class="btn-ghost" id="showMetronomeBtn">Show metronome</button>
-          </div>
-          <div class="row" style="margin-top:14px;">
-            <div class="label">Metronome volume</div>
-            <input type="range" id="metronomeVolumeSlider" min="0" max="100" step="5" value="70" aria-label="Metronome volume">
-            <span class="range-value" id="metronomeVolumeValue">70%</span>
           </div>
           <div class="row" style="margin-top:14px;">
             <div class="label">Notepad</div>
@@ -352,14 +344,6 @@
     </div>
   </div>
 
-  <div class="panel metronome-panel" id="metronomePanel" hidden>
-    <button type="button" class="panel-close-btn" id="metronomeCloseBtn" aria-label="Hide metronome">✕</button>
-    <div class="metronome-beat" id="metronomeBeat" aria-hidden="true"></div>
-    <div class="metronome-bpm-value" id="metronomeBpmValue">120 BPM</div>
-    <input type="range" id="metronomeBpmSlider" min="40" max="240" step="1" value="120" aria-label="Beats per minute">
-    <button type="button" class="btn-main" id="metronomeToggleBtn">Start</button>
-  </div>
-
   <div class="panel notepad-panel" id="notepadPanel" hidden>
     <button type="button" class="panel-close-btn" id="notepadCloseBtn" aria-label="Hide notepad">✕</button>
     <div class="notepad-title">Notepad</div>
@@ -399,6 +383,17 @@
         <div class="label">Volume</div>
         <input type="range" id="localPlayerVolumeSlider" min="0" max="100" step="5" value="70" aria-label="Beat volume">
         <span class="range-value" id="localPlayerVolumeValue">70%</span>
+      </div>
+    </div>
+    <div class="panel metronome-player" id="metronomePlayer" hidden>
+      <div class="metronome-beat" id="metronomeBeat" aria-hidden="true"></div>
+      <div class="metronome-bpm-value" id="metronomeBpmValue">120 BPM</div>
+      <input type="range" id="metronomeBpmSlider" min="40" max="240" step="1" value="120" aria-label="Beats per minute">
+      <button type="button" class="btn-main" id="metronomeToggleBtn">Start</button>
+      <div class="row">
+        <div class="label">Volume</div>
+        <input type="range" id="metronomeVolumeSlider" min="0" max="100" step="5" value="70" aria-label="Metronome volume">
+        <span class="range-value" id="metronomeVolumeValue">70%</span>
       </div>
     </div>
   </div>
