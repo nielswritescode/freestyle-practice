@@ -148,7 +148,7 @@
               <span>Enable keyboard shortcuts</span>
             </label>
           </div>
-          <div class="status-msg">C toggles Collab mode &middot; N toggles the Notepad &middot; Space or Enter refreshes rhymes &middot; holding D reveals all definitions</div>
+          <div class="status-msg">C toggles Collab mode &middot; N toggles the Notepad &middot; Space or Enter refreshes rhymes &middot; holding D reveals all definitions &middot; Tab switches language &middot; M switches the music player &middot; S shows/hides this shortcut list</div>
         </div>
         <div class="advanced-section">
           <div class="advanced-section-title">Slant rhymes</div>
@@ -355,6 +355,20 @@
       </div>
       <div class="status-msg">Autosaves to this browser only.</div>
     </div>
+  </div>
+
+  <div class="panel shortcuts-panel" id="shortcutsPanel" hidden>
+    <button type="button" class="panel-close-btn" id="shortcutsCloseBtn" aria-label="Hide shortcuts">✕</button>
+    <div class="shortcuts-title">Keyboard shortcuts</div>
+    <ul class="shortcuts-list">
+      <li><kbd>Space</kbd>/<kbd>Enter</kbd><span>Refresh rhymes</span></li>
+      <li><kbd>Tab</kbd><span>Switch language</span></li>
+      <li><kbd>M</kbd><span>Switch music player</span></li>
+      <li><kbd>C</kbd><span>Toggle Collab mode</span></li>
+      <li><kbd>N</kbd><span>Toggle Notepad</span></li>
+      <li><kbd>D</kbd> hold<span>Reveal all definitions</span></li>
+      <li><kbd>S</kbd><span>Show/hide this list</span></li>
+    </ul>
   </div>
 
   <div class="pairs" id="pairsContainer"></div>

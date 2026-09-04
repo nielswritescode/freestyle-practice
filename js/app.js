@@ -493,6 +493,8 @@
   const notepadTextarea = document.getElementById("notepadTextarea");
   const notepadClearBtn = document.getElementById("notepadClearBtn");
   const notepadDownloadBtn = document.getElementById("notepadDownloadBtn");
+  const shortcutsPanel = document.getElementById("shortcutsPanel");
+  const shortcutsCloseBtn = document.getElementById("shortcutsCloseBtn");
 
   // Heuristic syllable counter (vowel-group count, with a naive silent-e
   // correction). Not phonetically exact, but the built-in pronunciation data
@@ -2734,6 +2736,18 @@
     return SHORTCUT_TEXT_ENTRY_TAGS.has(target.tagName) || target.isContentEditable;
   }
 
+  // 'S' cheat-sheet overlay — deliberately not persisted, same reasoning as
+  // notepadVisible: a fresh visit shouldn't resume showing it.
+  let shortcutsPanelVisible = false;
+  function updateShortcutsPanelUI() {
+    shortcutsPanel.hidden = !shortcutsPanelVisible;
+  }
+  function toggleShortcutsPanel() {
+    shortcutsPanelVisible = !shortcutsPanelVisible;
+    updateShortcutsPanelUI();
+  }
+  shortcutsCloseBtn.addEventListener("click", toggleShortcutsPanel);
+
   // "Hold D" reveals every definition for as long as it's held, then hides
   // them again on release — but only the ones this hold actually opened, so
   // a definition the user already had open (via a manual click, in Simple
@@ -2774,6 +2788,18 @@
       revealAllDefsForHold();
     } else if (e.key === "n" || e.key === "N") {
       showNotepadBtn.click();
+    } else if (e.key === "s" || e.key === "S") {
+      toggleShortcutsPanel();
+    } else if (e.key === "m" || e.key === "M") {
+      const opts = playlistSourceSelect.options;
+      playlistSourceSelect.selectedIndex = (playlistSourceSelect.selectedIndex + 1) % opts.length;
+      playlistSourceSelect.dispatchEvent(new Event("change", { bubbles: true }));
+    } else if (e.key === "Tab" && !e.shiftKey) {
+      // Shift+Tab is left alone so reverse native tab-order still works.
+      e.preventDefault();
+      const langs = [...langPills];
+      const idx = langs.findIndex((btn) => btn.dataset.lang === currentLanguage);
+      langs[(idx + 1) % langs.length].click();
     }
   });
   document.addEventListener("keyup", (e) => {
@@ -2799,6 +2825,7 @@
   updateMetronomeBpmUI();
   updateMetronomeVolumeUI();
   updateMetronomeEmphasisUI();
+  updateShortcutsPanelUI();
   notepadTextarea.value = loadNotepadText();
   updateShowNotepadUI();
   playlistToggle.checked = playlistVisible;

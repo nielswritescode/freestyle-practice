@@ -123,6 +123,7 @@ test("broad click sweep across every major control throws no errors", async (doc
     "#hideUiBtn", "#localPlayerPrevBtn", "#localPlayerPlayBtn", "#localPlayerNextBtn",
     "#localPlayerLoopBtn", "#metronomeToggleBtn", "#collabToggle", "#shortcutsToggle",
     "#showNotepadBtn", "#notepadClearBtn", "#notepadDownloadBtn", "#notepadCloseBtn",
+    "#shortcutsCloseBtn",
   ];
   let clicked = 0;
   for (const sel of selectors) {
@@ -1219,6 +1220,50 @@ test("keyboard shortcuts toggle persists across a reload", async (doc) => {
   } finally {
     fresh.iframe.remove();
   }
+});
+
+test("'Tab' cycles through languages once shortcuts are enabled; Shift+Tab is left alone", async (doc) => {
+  doc.getElementById("shortcutsToggle").click();
+  assertEqual(doc.querySelector(".lang-pill.active").dataset.lang, "en", "should start on English");
+  doc.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab" }));
+  assertEqual(doc.querySelector(".lang-pill.active").dataset.lang, "nl", "'Tab' should move to the next language");
+  doc.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab", shiftKey: true }));
+  assertEqual(doc.querySelector(".lang-pill.active").dataset.lang, "nl", "Shift+Tab should be left alone, not cycle languages");
+
+  const input = doc.getElementById("customCount");
+  input.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab", bubbles: true }));
+  assertEqual(doc.querySelector(".lang-pill.active").dataset.lang, "nl", "'Tab' typed into an unrelated field should not cycle the language");
+});
+
+test("'M' cycles through music player sources once shortcuts are enabled", async (doc) => {
+  doc.getElementById("shortcutsToggle").click();
+  const select = doc.getElementById("playlistSourceSelect");
+  assertEqual(select.value, "youtube", "should start on YouTube");
+  doc.dispatchEvent(new KeyboardEvent("keydown", { key: "m" }));
+  assertEqual(select.value, "local", "'m' should move to the next source");
+  assertEqual(displayOf(doc.getElementById("localPlayer")), "flex", "local player should show, same as a real selection change");
+  doc.dispatchEvent(new KeyboardEvent("keydown", { key: "m" }));
+  assertEqual(select.value, "metronome", "'m' should move to the next source again");
+  doc.dispatchEvent(new KeyboardEvent("keydown", { key: "m" }));
+  assertEqual(select.value, "spotify", "'m' should wrap back around to the first source");
+});
+
+test("'S' toggles the shortcuts panel once shortcuts are enabled, and is ignored while typing in a field", async (doc) => {
+  doc.getElementById("shortcutsToggle").click();
+  const panel = doc.getElementById("shortcutsPanel");
+  assertEqual(displayOf(panel), "none", "shortcuts panel should start hidden");
+  doc.dispatchEvent(new KeyboardEvent("keydown", { key: "s" }));
+  assertEqual(displayOf(panel), "flex", "'s' should open the shortcuts panel");
+  doc.dispatchEvent(new KeyboardEvent("keydown", { key: "s" }));
+  assertEqual(displayOf(panel), "none", "'s' should close the shortcuts panel again");
+
+  const input = doc.getElementById("customCount");
+  input.dispatchEvent(new KeyboardEvent("keydown", { key: "s", bubbles: true }));
+  assertEqual(displayOf(panel), "none", "'s' typed into an unrelated field should not open the panel");
+
+  doc.dispatchEvent(new KeyboardEvent("keydown", { key: "s" }));
+  doc.getElementById("shortcutsCloseBtn").click();
+  assertEqual(displayOf(panel), "none", "the close button should also hide the panel");
 });
 
 // ---- notepad ----

@@ -778,6 +778,55 @@ a.btn-ghost{text-decoration:none; display:inline-block;}
   gap:10px;
 }
 .notepad-panel[hidden]{display:none;}
+
+/* Toggled by the 'S' keyboard shortcut (see the keyboard-shortcuts block in
+   js/app.js) — fixed like the timer/notepad panels so it's reachable
+   mid-practice, but top-right so it doesn't collide with either. */
+.shortcuts-panel{
+  position:fixed;
+  top:20px;
+  right:20px;
+  z-index:27;
+  width:min(300px, calc(100vw - 32px));
+  box-shadow:0 4px 18px rgba(0,0,0,.4);
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+}
+.shortcuts-panel[hidden]{display:none;}
+.shortcuts-title{
+  font-family:'Space Grotesk',sans-serif;
+  font-weight:700;
+  font-size:15px;
+  color:var(--ink);
+  padding-right:28px;
+}
+.shortcuts-list{
+  list-style:none;
+  margin:0;
+  padding:0;
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+}
+.shortcuts-list li{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  font-size:13px;
+  color:var(--ink-dim);
+}
+.shortcuts-list kbd{
+  font-family:'Space Grotesk',sans-serif;
+  font-size:12px;
+  font-weight:700;
+  color:var(--ink);
+  background:var(--panel-2);
+  border:1px solid var(--line);
+  border-radius:6px;
+  padding:2px 7px;
+}
 .notepad-title{
   font-family:'Space Grotesk',sans-serif;
   font-weight:700;
