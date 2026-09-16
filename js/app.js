@@ -2794,8 +2794,7 @@
       const opts = playlistSourceSelect.options;
       playlistSourceSelect.selectedIndex = (playlistSourceSelect.selectedIndex + 1) % opts.length;
       playlistSourceSelect.dispatchEvent(new Event("change", { bubbles: true }));
-    } else if (e.key === "Tab" && !e.shiftKey) {
-      // Shift+Tab is left alone so reverse native tab-order still works.
+    } else if (e.key === "l" || e.key === "L") {
       e.preventDefault();
       const langs = [...langPills];
       const idx = langs.findIndex((btn) => btn.dataset.lang === currentLanguage);

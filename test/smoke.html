@@ -1222,17 +1222,15 @@ test("keyboard shortcuts toggle persists across a reload", async (doc) => {
   }
 });
 
-test("'Tab' cycles through languages once shortcuts are enabled; Shift+Tab is left alone", async (doc) => {
+test("'L' cycles through languages once shortcuts are enabled", async (doc) => {
   doc.getElementById("shortcutsToggle").click();
   assertEqual(doc.querySelector(".lang-pill.active").dataset.lang, "en", "should start on English");
-  doc.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab" }));
-  assertEqual(doc.querySelector(".lang-pill.active").dataset.lang, "nl", "'Tab' should move to the next language");
-  doc.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab", shiftKey: true }));
-  assertEqual(doc.querySelector(".lang-pill.active").dataset.lang, "nl", "Shift+Tab should be left alone, not cycle languages");
+  doc.dispatchEvent(new KeyboardEvent("keydown", { key: "l" }));
+  assertEqual(doc.querySelector(".lang-pill.active").dataset.lang, "nl", "'L' should move to the next language");
 
   const input = doc.getElementById("customCount");
-  input.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab", bubbles: true }));
-  assertEqual(doc.querySelector(".lang-pill.active").dataset.lang, "nl", "'Tab' typed into an unrelated field should not cycle the language");
+  input.dispatchEvent(new KeyboardEvent("keydown", { key: "l", bubbles: true }));
+  assertEqual(doc.querySelector(".lang-pill.active").dataset.lang, "nl", "'L' typed into an unrelated field should not cycle the language");
 });
 
 test("'M' cycles through music player sources once shortcuts are enabled", async (doc) => {
